@@ -349,6 +349,48 @@ calculate_dispersion_measures <- function(vector, freq_list, rnd = 4, mean, clas
 }
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Calcular probabilidades Binomiales con redondeo simétrico
+# ──────────────────────────────────────────────────────────────────────────────
+calculate_binomial_probability <- function(x, size, prob, op = "eq", rnd = 4) {
+  probability <- switch(op,
+                        # X = x
+                        "eq"  = dbinom(x, size = size, prob = prob),
+                        # X < x  (menor estricto)
+                        "lt"  = pbinom(x - 1, size = size, prob = prob, lower.tail = TRUE),
+                        # X <= x (menor o igual)
+                        "lte" = pbinom(x, size = size, prob = prob, lower.tail = TRUE),
+                        # X > x  (mayor estricto)
+                        "gt"  = pbinom(x, size = size, prob = prob, lower.tail = FALSE),
+                        # X >= x (mayor o igual)
+                        "gte" = pbinom(x - 1, size = size, prob = prob, lower.tail = FALSE)
+  )
+  
+  return(round(probability, rnd))
+}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Calcular probabilidades de Poisson con redondeo simétrico
+# ──────────────────────────────────────────────────────────────────────────────
+calculate_poisson_probability <- function(x, lambda, op = "eq", rnd = 4) {
+  probability <- switch(op,
+                        # X = x
+                        "eq"  = dpois(x, lambda = lambda),
+                        # X < x  (menor estricto)
+                        "lt"  = ppois(x - 1, lambda = lambda, lower.tail = TRUE),
+                        # X <= x (menor o igual)
+                        "lte" = ppois(x, lambda = lambda, lower.tail = TRUE),
+                        # X > x  (mayor estricto)
+                        "gt"  = ppois(x, lambda = lambda, lower.tail = FALSE),
+                        # X >= x (mayor o igual)
+                        "gte" = ppois(x - 1, lambda = lambda, lower.tail = FALSE)
+  )
+  
+  return(round(probability, rnd))
+}
+
+
 # ==============================================================================
 # FUNCIONES PRINCIPALES
 # ==============================================================================
@@ -578,7 +620,7 @@ render_histogram <- function(
         vjust = -0.5,
         color = "darkblue",
         fontface = "bold",
-        size = 3.2
+        linewidth = 3.2
       )
   }
   
@@ -625,19 +667,19 @@ render_histogram <- function(
         xintercept = descriptive_measures$Media, 
         color = "blue", 
         linetype = "dashed", 
-        size = 0.8
+        linewidth = 0.8
       ) + 
       geom_vline(
         xintercept = descriptive_measures$Mediana, 
         color = "green", 
         linetype = "solid", 
-        size = 0.8
+        linewidth = 0.8
       ) + 
       geom_vline(
         xintercept = descriptive_measures$Moda, 
         color = "red", 
         linetype = "dotdash", 
-        size = 0.8
+        linewidth = 0.8
       ) +
       annotate(
         "text", 
@@ -647,7 +689,7 @@ render_histogram <- function(
         color = "blue", 
         hjust = 0,
         fontface = "bold",
-        size = 4
+        linewidth = 4
       ) +
       annotate(
         "text", 
@@ -657,7 +699,7 @@ render_histogram <- function(
         color = "green", 
         hjust = 0,
         fontface = "bold",
-        size = 4
+        linewidth = 4
       ) +
       annotate(
         "text", 
@@ -667,7 +709,7 @@ render_histogram <- function(
         color = "red", 
         hjust = 0,
         fontface = "bold",
-        size = 4
+        linewidth = 4
       )
     }
 
@@ -678,13 +720,13 @@ render_histogram <- function(
         xintercept = position_measures$Q1, 
         color = "violet", 
         linetype = "dotted", 
-        size = 0.9
+        linewidth = 0.9
         ) + 
       geom_vline(
         xintercept = position_measures$Q3, 
         color = "violet", 
         linetype = "dotted", 
-        size = 0.9
+        linewidth = 0.9
         ) +
       annotate(
         "text", 
@@ -729,7 +771,7 @@ render_pie_chart <- function(frequency_table, var_name, palette = "Set2") {
       aes(label = paste0(porcentajes, "%\n(", Frec_Abs, ")")),
       position = position_stack(vjust = 0.5),
       color = "black",
-      size = 3,
+      linewidth = 3,
       fontface = "bold"
     ) +
     scale_fill_brewer(palette = palette) +
@@ -932,6 +974,93 @@ cat(
   "• Satisfacción negativa:", 
   round(sum(res_satisfaccion$tabla_frecuencias$Frec_Rel[3:4]) * 100, 2), 
   "%\n"
+)
+
+
+# ------------------------------------------------------------------------------
+# 5) MODELO BINOMIAL (Consigna 5)
+# ------------------------------------------------------------------------------
+
+# Extraemos las probabilidades calculadas
+p_muy_satisfecho   <- res_satisfaccion$tabla_frecuencias$Frec_Rel[1]
+p_satisfecho       <- res_satisfaccion$tabla_frecuencias$Frec_Rel[2]
+p_insatisfecho     <- res_satisfaccion$tabla_frecuencias$Frec_Rel[3]
+p_muy_insatisfecho <- res_satisfaccion$tabla_frecuencias$Frec_Rel[4]
+
+# Muestra
+n <- 16
+
+# ───────────────────────────────────
+# 5a) Más de 9 muy satisfechos: P(X > 9)
+prob_5a <- calculate_binomial_probability(x = 9, size = n, prob = p_muy_satisfecho, op = "gt")
+
+# ───────────────────────────────────
+# 5b) Entre 4 y 8 satisfechos: P(4 <= X <= 8) -> P(X <= 8) - P(X <= 3)
+prob_5b <- calculate_binomial_probability(x = 8, size = n, prob = p_satisfecho, op = "lte") - 
+  calculate_binomial_probability(x = 3, size = n, prob = p_satisfecho, op = "lte")
+
+# ───────────────────────────────────
+# 5c) Menos de 5 insatisfechos: P(X < 5)
+prob_5c <- calculate_binomial_probability(x = 5, size = n, prob = p_insatisfecho, op = "lt")
+
+# ───────────────────────────────────
+# 5d) Exactamente 10 muy insatisfechos: P(X = 10)
+prob_5d <- calculate_binomial_probability(x = 10, size = n, prob = p_muy_insatisfecho)
+
+message("\nANÁLISIS DEL MODELO BINOMIAL\n")
+
+cat(
+  "• La probabilidad de que más de 9 estudiantes estén muy satisfechos con la carrera es:", 
+  prob_5a, "\n"
+)
+cat(
+  "• La probabilidad de que entre 4 y 8 estudiantes estén satisfechos con la carrera es:", 
+  prob_5b, "\n"
+)
+cat(
+  "• La probabilidad de que menos de 5 estudiantes estén insatisfechos con la carrera es:", 
+  prob_5c, "\n"
+)
+cat(
+  "• La probabilidad de que exactamente 10 estudiantes estén muy insatisfechos con la carrera es:", 
+  prob_5d, "\n"
+)
+
+
+# ------------------------------------------------------------------------------
+# 6) MODELO DE POISSON (Consigna 6)
+# ------------------------------------------------------------------------------
+
+#Parámetro base
+base <- 15/30
+
+# ───────────────────────────────────
+# 6a) Por lo menos 6 consultas en 20 minutos
+prob_6a <- calculate_poisson_probability(x = 6, lambda = base * 20, op = "gte")
+
+# ───────────────────────────────────
+# 6b) A lo sumo 12 consultas en 40 minutos
+prob_6b <- calculate_poisson_probability(x = 12, lambda = base * 40, op = "lte")
+
+# ───────────────────────────────────
+# 6c) Más de 7 y menos de 10 consultas en 30 minutos: P(7 < X < 10) -> P(X = 8) - P(X = 9)
+prob_6c <- calculate_poisson_probability(x = 8, lambda = base * 30) + 
+  calculate_poisson_probability(x = 9, lambda = base * 30)
+
+
+message("\nANÁLISIS DEL MODELO DE POISSON\n")
+
+cat(
+  "• La probabilidad de que lleguen por lo menos 6 consultas en 20 minutos es:", 
+  prob_6a, "\n"
+)
+cat(
+  "• La probabilidad de que lleguen a lo sumo 12 consultas en 40 minutos es:", 
+  prob_6b, "\n"
+)
+cat(
+  "• La probabilidad de que lleguen más de 7 y menos de 10 consultas en 30 minutos es:", 
+  prob_6c, "\n"
 )
 
 
