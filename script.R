@@ -386,13 +386,13 @@ calculate_dispersion_measures <- function(
 # ──────────────────────────────────────────────────────────────────────────────
 calculate_binomial_probability <- function(x, size, prob, op = "eq", rnd = 4) {
   probabilidad <- switch(op,
-                        # X = x
-                        "eq"  = dbinom(x, size = size, prob = prob),
-                        # X < x  (menor estricto)
+                        # X =  x (soporta escalares o vectores)
+                        "eq"  = sum(dbinom(x, size = size, prob = prob)),
+                        # X <  x (menor estricto)
                         "lt"  = pbinom(x - 1, size = size, prob = prob),
                         # X <= x (menor o igual)
                         "lte" = pbinom(x, size = size, prob = prob),
-                        # X > x  (mayor estricto)
+                        # X >  x (mayor estricto)
                         "gt"  = pbinom(x, size = size, prob = prob, lower.tail = F),
                         # X >= x (mayor o igual)
                         "gte" = pbinom(x - 1, size = size, prob = prob, lower.tail = F)
@@ -407,13 +407,13 @@ calculate_binomial_probability <- function(x, size, prob, op = "eq", rnd = 4) {
 # ──────────────────────────────────────────────────────────────────────────────
 calculate_poisson_probability <- function(x, lambda, op = "eq", rnd = 4) {
   probabilidad <- switch(op,
-                        # X = x
-                        "eq"  = dpois(x, lambda = lambda),
-                        # X < x  (menor estricto)
+                        # X =  x (soporta escalares o vectores)
+                        "eq"  = sum(dpois(x, lambda = lambda)),
+                        # X <  x (menor estricto)
                         "lt"  = ppois(x - 1, lambda = lambda),
                         # X <= x (menor o igual)
                         "lte" = ppois(x, lambda = lambda),
-                        # X > x  (mayor estricto)
+                        # X >  x (mayor estricto)
                         "gt"  = ppois(x, lambda = lambda, lower.tail = F),
                         # X >= x (mayor o igual)
                         "gte" = ppois(x - 1, lambda = lambda, lower.tail = F)
@@ -851,29 +851,45 @@ render_pie_chart <- function(frequency_table, var_name, palette = "Set2") {
 # ──────────────────────────────────────────────────────────────────────────────
 # Graficar la Distribución Binomial Teórica con Esperanza y Desvío
 # ──────────────────────────────────────────────────────────────────────────────
-render_binomial_dist <- function(size, prob, var_name, color = "steelblue") {
+render_binomial_dist <- function(
+    size, 
+    prob, 
+    critical_x, 
+    var_name, 
+    op = "eq", 
+    bar_color = "steelblue", 
+    rnd = 4
+) {
   
-  # 1. Parámetros teóricos de la distribución
+  # 1. Parámetros teóricos centrales
   esperanza <- size * prob
   varianza <- esperanza * (1 - prob)
   desvio <- sqrt(varianza)
-  
   limite_inf <- esperanza - desvio
   limite_sup <- esperanza + desvio
   
-  # 2. Espacio muestral (de 0 éxitos a n)
+  # 2. Generar el espacio muestral completo (0 a n)
   df_bin <- data.frame(
     Exitos = 0:size,
     Probabilidad = dbinom(0:size, size = size, prob = prob)
   )
+
+  # 3. LÓGICA DINÁMICA DE RESALTADO: Evalúa qué barras cumplen la condición
+  df_bin$Cumple <- switch(op,
+                          "eq"  = (df_bin$Exitos %in% critical_x),
+                          "lt"  = (df_bin$Exitos <  critical_x),
+                          "lte" = (df_bin$Exitos <= critical_x),
+                          "gt"  = (df_bin$Exitos >  critical_x),
+                          "gte" = (df_bin$Exitos >= critical_x)
+  )
   
-  # 3. Posicionamiento en esquina superior derecha
+  # 4. Posicionamiento de leyendas
   label_x <- size * 0.75
   label_y_start <- max(df_bin$Probabilidad) * 0.95
   label_spacing <- max(df_bin$Probabilidad) * 0.1
   
-  # 4. Gráfico con ggplot2
-  p <- ggplot(df_bin, aes(x = Exitos, y = Probabilidad)) +
+  # 5. Gráfico con ggplot2
+  p <- ggplot(df_bin, aes(x = Exitos, y = Probabilidad, fill = Cumple)) +
     
     # Franja de dispersión típica (Esperanza ± 1 Desvío)
     geom_rect(
@@ -881,20 +897,23 @@ render_binomial_dist <- function(size, prob, var_name, color = "steelblue") {
       fill = "orange", alpha = 0.05
     ) +
     
-    # Barras de probabilidad
+    # Barras de probabilidad con colores condicionales
     geom_bar(
       stat = "identity", 
-      fill = color, 
       color = "white", 
-      alpha = 0.8
+      alpha = 0.85, 
+      width = 0.8
     ) +
     
-    # Línea vertical para la Esperanza Matemática
+    # Mapeo manual de colores: TRUE (Azul de éxito) / FALSE (Gris pasivo)
+    scale_fill_manual(values = c("FALSE" = "gray85", "TRUE" = bar_color)) +
+    
+    # Líneas de parámetros teóricos
     geom_vline(
       xintercept = esperanza, 
       color = "darkblue", 
       linetype = "dashed", 
-      linewidth = 0.9
+      linewidth = 0.8
     ) +
     geom_vline(
       xintercept = limite_inf, 
@@ -909,12 +928,23 @@ render_binomial_dist <- function(size, prob, var_name, color = "steelblue") {
       linewidth = 0.8
     ) +
     
+    # Etiquetas de probabilidad inclinadas a 45° con margen superior ampliado
+    geom_text(
+      aes(label = sprintf("%.4f", Probabilidad)), 
+      vjust = -0.4, 
+      hjust = -0.1, 
+      angle = 45,
+      color = "gray30", 
+      size = 2.4, 
+      fontface = "bold"
+    ) +
+
     # Textos e indicadores con el color idéntico a su línea correspondiente
     annotate(
       "label", 
       x = limite_inf, 
       y = max(df_bin$Probabilidad) * 0.85, 
-      label = paste(" μ - σ:", round(limite_inf, 2)), 
+      label = paste(" μ - σ:", round(limite_inf, rnd)), 
       color = "darkorange", 
       hjust = 1.1,
       fontface = "bold",
@@ -924,30 +954,19 @@ render_binomial_dist <- function(size, prob, var_name, color = "steelblue") {
       "label", 
       x = limite_sup, 
       y = max(df_bin$Probabilidad) * 0.85, 
-      label = paste(" μ + σ:", round(limite_sup, 2)), 
+      label = paste(" μ + σ:", round(limite_sup, rnd)), 
       color = "darkorange", 
       hjust = -0.1,
       fontface = "bold",
       fill = "white"
       ) +
     
-    # Etiquetas de probabilidad sobre cada barra
-    geom_text(
-      aes(label = sprintf("%.4f", Probabilidad)), 
-      vjust = 0.3,
-      hjust = -0.1,
-      angle = 90,
-      color = "gray30", 
-      size = 2.5, 
-      fontface = "bold"
-    ) +
-    
     # Leyenda con los parámetros teóricos en la esquina superior derecha
     annotate(
       "label", 
       x = label_x, 
       y = label_y_start,
-      label = paste0("Esperanza (μ): ", round(esperanza, 2)),
+      label = paste0("Esperanza (μ): ", round(esperanza, rnd)),
       color = "darkblue", 
       hjust = 0,
       fontface = "bold",
@@ -959,7 +978,7 @@ render_binomial_dist <- function(size, prob, var_name, color = "steelblue") {
       "label", 
       x = label_x, 
       y = label_y_start - label_spacing,
-      label = paste("Varianza (σ²): ", round(varianza, 2)),
+      label = paste("Varianza (σ²): ", round(varianza, rnd)),
       color = "green", 
       hjust = 0,
       fontface = "bold",
@@ -971,7 +990,7 @@ render_binomial_dist <- function(size, prob, var_name, color = "steelblue") {
       "label", 
       x = label_x, 
       y = label_y_start - (2 * label_spacing),
-      label = paste("Desvío (σ): ±", round(desvio, 2)),
+      label = paste("Desvío (σ): ±", round(desvio, rnd)),
       color = "darkorange", 
       hjust = 0,
       fontface = "bold",
@@ -982,17 +1001,23 @@ render_binomial_dist <- function(size, prob, var_name, color = "steelblue") {
   
     labs(
       title = paste("Distribución Binomial:", var_name),
-      subtitle = paste0("(n = ", size, ", p = ", round(prob, 4), ")"),
-      x = "Número de Alumnos (Éxitos)",
+      subtitle = paste0("(n = ", size, " | p = ", round(prob, rnd), " | Condición: ", op, " ", critical_x, ")"),
+      x = "Número de Éxitos",
       y = "Probabilidad Teórica"
     ) +
     
     scale_x_continuous(breaks = 0:size) +
+
+    # Ampliamos el límite de Y un 20% para que las etiquetas a 45° no se corten arriba
+    scale_y_continuous(limits = c(0, max(df_bin$Probabilidad) * 1.20)) + 
+
     theme_minimal() +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"),
-      plot.subtitle = element_text(hjust = 0.5, face = "italic", color = "gray30"),
+      plot.subtitle = element_text(hjust = 0.5, face = "italic", color = "gray40"),
       axis.title = element_text(face = "bold"),
+      # Ocultamos la leyenda automática de TRUE/FALSE
+      legend.position = "none",
       panel.grid.minor = element_blank()
     )
   
@@ -1003,7 +1028,7 @@ render_binomial_dist <- function(size, prob, var_name, color = "steelblue") {
 # ──────────────────────────────────────────────────────────────────────────────
 # Graficar la Distribución de Poisson Teórica con Esperanza y Desvío
 # ──────────────────────────────────────────────────────────────────────────────
-render_poisson_dist <- function(lambda, var_name, color = "cadetblue") {
+render_poisson_dist <- function(x, lambda, var_name, op = "eq", bar_color = "cadetblue", rnd = 4) {
   
   # 1. Parámetros teóricos (μ = σ²)
   esperanza <- lambda
@@ -1036,7 +1061,7 @@ render_poisson_dist <- function(lambda, var_name, color = "cadetblue") {
       fill = "orange", alpha = 0.05
     ) +
     
-    geom_bar(stat = "identity", fill = color, color = "white", alpha = 0.8) +
+    geom_bar(stat = "identity", fill = bar_color, color = "white", alpha = 0.8) +
 
     # Líneas de parámetros
     geom_vline(
@@ -1063,7 +1088,7 @@ render_poisson_dist <- function(lambda, var_name, color = "cadetblue") {
       "label", 
       x = limite_inf, 
       y = max(df_pois$Probabilidad) * 0.85, 
-      label = paste(" μ - σ:", round(limite_inf, 2)), 
+      label = paste(" μ - σ:", round(limite_inf, rnd)), 
       color = "darkorange", 
       fontface = "bold", 
       hjust = 1.1,
@@ -1073,7 +1098,7 @@ render_poisson_dist <- function(lambda, var_name, color = "cadetblue") {
       "label", 
       x = limite_sup, 
       y = max(df_pois$Probabilidad) * 0.85, 
-      label = paste(" μ + σ:", round(limite_sup, 2)), 
+      label = paste(" μ + σ:", round(limite_sup, rnd)), 
       color = "darkorange", 
       fontface = "bold", 
       hjust = -0.1,
@@ -1096,7 +1121,7 @@ render_poisson_dist <- function(lambda, var_name, color = "cadetblue") {
       "label", 
       x = label_x, 
       y = label_y_start,
-      label = paste0("λ (μ = σ²): ", round(esperanza, 2)),
+      label = paste0("λ (μ = σ²): ", round(esperanza, rnd)),
       color = "darkblue", 
       hjust = 0,
       fontface = "bold",
@@ -1108,7 +1133,7 @@ render_poisson_dist <- function(lambda, var_name, color = "cadetblue") {
       "label", 
       x = label_x, 
       y = label_y_start - label_spacing,
-      label = paste("Desvío (σ): ±", round(desvio, 2)),
+      label = paste("Desvío (σ): ±", round(desvio, rnd)),
       color = "darkorange", 
       hjust = 0,
       fontface = "bold",
@@ -1142,75 +1167,7 @@ render_poisson_dist <- function(lambda, var_name, color = "cadetblue") {
 #   sd = res_tiempo$medidas_dispersion$Desvio_Estandar, 
 #   var_name = "Tiempo de estudio semanal (horas)"
 # )
-# ──────────────────────────────────────────────────────────────────────────────
-# Graficar la Distribución Binomial Teórica con Resaltado de Éxitos
-# ──────────────────────────────────────────────────────────────────────────────
-render_binomial_dist2 <- function(size, prob, x_critico, op = "eq", var_name) {
-  
-  # 1. Parámetros teóricos centrales
-  esperanza <- size * prob
-  varianza <- size * prob * (1 - prob)
-  desvio <- sqrt(varianza)
-  
-  # 2. Generar el espacio muestral completo (0 a n)
-  df_bin <- data.frame(
-    Exitos = 0:size,
-    Probabilidad = dbinom(0:size, size = size, prob = prob)
-  )
-  
-  # 3. LÓGICA DINÁMICA DE RESALTADO: Evalúa qué barras cumplen la condición
-  df_bin$Cumple <- switch(op,
-                          "eq"  = (df_bin$Exitos == x_critico),
-                          "lt"  = (df_bin$Exitos < x_critico),
-                          "lte" = (df_bin$Exitos <= x_critico),
-                          "gt"  = (df_bin$Exitos > x_critico),
-                          "gte" = (df_bin$Exitos >= x_critico)
-  )
-  
-  # 4. Construcción del gráfico con ggplot2
-  p <- ggplot(df_bin, aes(x = Exitos, y = Probabilidad, fill = Cumple)) +
-    # Barras de probabilidad con colores condicionales
-    geom_bar(stat = "identity", color = "white", alpha = 0.85, width = 0.8) +
-    
-    # Mapeo manual de colores: TRUE (Azul de éxito) / FALSE (Gris pasivo)
-    scale_fill_manual(values = c("FALSE" = "gray85", "TRUE" = "steelblue")) +
-    
-    # Líneas de parámetros teóricos
-    geom_vline(xintercept = esperanza, color = "darkblue", linetype = "dashed", linewidth = 0.9) +
-    geom_vline(xintercept = esperanza - desvio, color = "darkorange", linetype = "dotted", linewidth = 0.8) +
-    geom_vline(xintercept = esperanza + desvio, color = "darkorange", linetype = "dotted", linewidth = 0.8) +
-    
-    # Etiquetas de probabilidad inclinadas a 45° con margen superior ampliado
-    geom_text(
-      aes(label = sprintf("%.4f", Probabilidad)), 
-      vjust = -0.4, hjust = -0.1, angle = 45,
-      color = "gray30", size = 2.4, fontface = "bold"
-    ) +
-    
-    # Leyendas de parámetros alineadas por color
-    annotate("text", x = esperanza, y = max(df_bin$Probabilidad) * 0.95, 
-             label = paste(" μ:", round(esperanza, 2)), color = "darkblue", fontface = "bold", hjust = -0.1) +
-    
-    labs(
-      title = paste("Modelo Binomial:", var_name),
-      subtitle = paste0("(n = ", size, ", p = ", round(prob, 4), " | Condición: ", op, " ", x_critico, ")"),
-      x = "Número de Alumnos (Éxitos)",
-      y = "Probabilidad Teórica"
-    ) +
-    scale_x_continuous(breaks = 0:size) +
-    # Ampliamos el límite de Y un 20% para que las etiquetas a 45° no se corten arriba
-    scale_y_continuous(limits = c(0, max(df_bin$Probabilidad) * 1.20)) + 
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5, face = "bold"),
-      plot.subtitle = element_text(hjust = 0.5, face = "italic", color = "gray40"),
-      axis.title = element_text(face = "bold"),
-      legend.position = "none", # Ocultamos la leyenda automática de TRUE/FALSE
-      panel.grid.minor = element_blank()
-    )
-  
-  return(p)
-}
+
 
 # ==============================================================================
 # APLICACIÓN AL CASO DE ESTUDIO
@@ -1353,7 +1310,6 @@ histograma <- render_histogram(
   descriptive_measures = res_tiempo$medidas_centrales,
   position_measures = res_tiempo$medidas_posicion$cuartiles
 )
-print(histograma)
 
 # ───────────────────────────────────
 # 4b) Diagrama circular para satisfacción
@@ -1361,7 +1317,6 @@ diagrama <- render_pie_chart(
   res_satisfaccion$tabla_frecuencias,
   "Satisfacción con la carrera"
 )
-print(diagrama)
 
 # ───────────────────────────────────
 # 4c) Análisis de gráficos
@@ -1413,24 +1368,53 @@ p_insatisfecho     <- res_satisfaccion$tabla_frecuencias$Frec_Rel[3]
 p_muy_insatisfecho <- res_satisfaccion$tabla_frecuencias$Frec_Rel[4]
 
 # Muestra
-n <- 16
+n_muestra <- 16
 
 # ───────────────────────────────────
 # 5a) Más de 9 muy satisfechos: P(X > 9)
-prob_5a <- calculate_binomial_probability(x = 9, size = n, prob = p_muy_satisfecho, op = "gt")
+prob_5a <- calculate_binomial_probability(x = 9, size = n_muestra, prob = p_muy_satisfecho, op = "gt")
+
+g_binom_5a <- render_binomial_dist(
+  size = n_muestra,
+  prob = p_muy_satisfecho,
+  critical_x = 9,
+  op = "gt", 
+  var_name = "Más de 9 alumnos 'Muy Satisfechos'"
+)
 
 # ───────────────────────────────────
-# 5b) Entre 4 y 8 satisfechos: P(4 <= X <= 8) -> P(X <= 8) - P(X <= 3)
-prob_5b <- calculate_binomial_probability(x = 8, size = n, prob = p_satisfecho, op = "lte") - 
-  calculate_binomial_probability(x = 3, size = n, prob = p_satisfecho, op = "lte")
+# 5b) Entre 4 y 8 satisfechos: P(4 <= X <= 8)
+prob_5b <- calculate_binomial_probability(x = 4:8, size = n_muestra, prob = p_satisfecho)
+
+g_binom_5b <- render_binomial_dist(
+  size = n_muestra,
+  prob = p_satisfecho,
+  critical_x = 4:8,
+  var_name = "Entre 4 y 8 alumnos 'Satisfechos'"
+)
 
 # ───────────────────────────────────
 # 5c) Menos de 5 insatisfechos: P(X < 5)
-prob_5c <- calculate_binomial_probability(x = 5, size = n, prob = p_insatisfecho, op = "lt")
+prob_5c <- calculate_binomial_probability(x = 5, size = n_muestra, prob = p_insatisfecho, op = "lt")
+
+g_binom_5c <- render_binomial_dist(
+  size = n_muestra, 
+  prob = p_insatisfecho,
+  critical_x = 5, 
+  op = "lt", 
+  var_name = "Menos de 5 alumnos 'Insatisfechos'"
+)
 
 # ───────────────────────────────────
 # 5d) Exactamente 10 muy insatisfechos: P(X = 10)
-prob_5d <- calculate_binomial_probability(x = 10, size = n, prob = p_muy_insatisfecho)
+prob_5d <- calculate_binomial_probability(x = 10, size = n_muestra, prob = p_muy_insatisfecho)
+
+g_binom_5d <- render_binomial_dist(
+  size = n_muestra,
+  prob = p_muy_insatisfecho,
+  critical_x = 10,
+  var_name = "Exactamente 10 alumnos 'Muy Insatisfechos'"
+)
 
 message("\nANÁLISIS DEL MODELO BINOMIAL\n")
 
@@ -1450,61 +1434,6 @@ cat(
   "• La probabilidad de que exactamente 10 estudiantes estén muy insatisfechos con la carrera es:", 
   prob_5d, "\n"
 )
-
-# ───────────────────────────────────
-# Generar el gráfico teórico para alumnos Muy Satisfechos
-g_binom_5a <- render_binomial_dist(
-  size = n, 
-  prob = p_muy_satisfecho,
-  var_name = "Alumnos 'Muy Satisfechos'"
-)
-print(g_binom_5a)
-
-#------------------------------------------------------
-
-# a_bis. Exactamente 10 muy satisfechos: P(X = 10)
-g_bin_5a_bis <- render_binomial_dist2(
-  size = n, 
-  prob = p_muy_satisfecho, # 0.1333
-  x_critico = 10,
-  var_name = "Exactamente 10 alumnos 'Muy Satisfechos'"
-)
-print(g_bin_5a_bis)
-ggsave("output/binomial_muy_satisfechos_bis.jpg", g_bin_5a_bis, width = 10, height = 5.5, dpi = 300)
-
-# a. Más de 9 muy satisfechos: P(X > 9) -> Pintará de azul las barras de la 10 a la 16
-g_bin_5a <- render_binomial_dist2(
-  size = n, 
-  prob = p_muy_satisfecho, # 0.3905
-  x_critico = 9, 
-  op = "gt", 
-  var_name = "Más de 9 alumnos 'Muy Satisfechos'"
-)
-print(g_bin_5a)
-# ggsave("binomial_5a_resaltado.png", g_bin_5a, width = 10, height = 5.5, dpi = 300)
-
-# c. Menos de 5 insatisfechos: P(X < 5) -> Pintará de azul las barras de la 0 a la 4
-g_bin_5c <- render_binomial_dist2(
-  size = n, 
-  prob = p_insatisfecho, # 0.1714
-  x_critico = 5, 
-  op = "lt", 
-  var_name = "Menos de 5 alumnos 'Insatisfechos'"
-)
-print(g_bin_5c)
-# ggsave("binomial_5c_resaltado.png", g_bin_5c, width = 10, height = 5.5, dpi = 300)
-
-# d. Exactamente 10 muy insatisfechos: P(X = 10)
-g_bin_5d <- render_binomial_dist2(
-  size = n, 
-  prob = p_muy_insatisfecho, # 0.1333
-  x_critico = 10,
-  var_name = "Exactamente 10 alumnos 'Muy Insatisfechos'"
-)
-print(g_bin_5d)
-# ggsave("binomial_5d_exacto.png", g_bin_5d, width = 10, height = 5.5, dpi = 300)
-
-#---------------------------------------------------
 
 
 # ------------------------------------------------------------------------------
@@ -1552,29 +1481,48 @@ g_pois_6a <- render_poisson_dist(
 print(g_pois_6a)
 
 # ------------------------------------------------------------------------------
-# GUARDAR RESULTADOS
+# GRAFICAR Y GUARDAR RESULTADOS
 # ------------------------------------------------------------------------------
+graficar <- T
 guardar <- T
+
+if(graficar) {
+  print(histograma)
+  print(diagrama)
+  print(g_binom_5a)
+  print(g_binom_5b)
+  print(g_binom_5c)
+  print(g_binom_5d)
+  print(g_pois_6a)
+}
 
 if(guardar) {
   # Guardar gráficos
-  ggsave("output/histograma_tiempo_estudio.jpg", histograma, width = 10, height = 6, dpi = 300)
-  ggsave("output/diagrama_satisfaccion.jpg", diagrama, width = 8, height = 6, dpi = 300)
-  ggsave("output/binomial_muy_satisfechos.jpg", g_binom_5a, width = 9, height = 5, dpi = 300)
+  ggsave("output/histograma_tiempo_estudio.jpg", histograma, width = 9, height = 5, dpi = 300)
+  ggsave("output/diagrama_satisfaccion.jpg", diagrama, width = 9, height = 5, dpi = 300)
+  ggsave("output/binomial_gt9_muy_satisfechos.jpg", g_binom_5a, width = 9, height = 5, dpi = 300)
+  ggsave("output/binomial_lte4_lte8_satisfechos.jpg", g_binom_5b, width = 9, height = 5, dpi = 300)
+  ggsave("output/binomial_lt5_insatisfechos.jpg", g_binom_5c, width = 9, height = 5, dpi = 300)
+  ggsave("output/binomial_eq10_muy_insatisfechos.jpg", g_binom_5d, width = 9, height = 5, dpi = 300)
   ggsave("output/poisson_20minutos.jpg", g_pois_6a, width = 9, height = 5, dpi = 300)
-  
+
   # Guardar resultados en CSV
   write.csv(res_tiempo$tabla_frecuencias, "output/tabla_frecuencias_tiempo_estudio.csv", row.names = F)
   write.csv(res_satisfaccion$tabla_frecuencias, "output/tabla_frecuencias_satisfaccion.csv", row.names = F)
   
+  # Mostrar archivos guardados
   cat("\n", "=", "ARCHIVOS GUARDADOS", "=", "\n")
   cat("• histograma_tiempo_estudio.jpg\n")
   cat("• diagrama_satisfaccion.jpg\n")
-  cat("• binomial_muy_satisfechos.jpg\n")
+  cat("• binomial_gt9_muy_satisfechos.jpg\n")
+  cat("• binomial_lte4_lte8_satisfechos.jpg\n")
+  cat("• binomial_lt5_insatisfechos.jpg\n")
+  cat("• binomial_eq10_muy_insatisfechos.jpg\n")
   cat("• poisson_20minutos.jpg\n")
   cat("• tabla_frecuencias_tiempo_estudio.csv\n")
   cat("• tabla_frecuencias_satisfaccion.csv\n")
 }
+
 
 # ==============================================================================
 # FIN DEL SCRIPT
