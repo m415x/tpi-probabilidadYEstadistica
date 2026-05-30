@@ -679,7 +679,7 @@ render_histogram <- function(
         data = df_barras,
         aes(x = marca_clase, y = y, label = y),
         vjust = -0.5,
-        color = "blue",
+        color = "darkblue",
         fontface = "bold",
         size = 3.2
       )
@@ -911,9 +911,9 @@ render_binomial_dist <- function(
     # Líneas de parámetros teóricos
     geom_vline(
       xintercept = esperanza, 
-      color = "blue", 
+      color = "darkblue", 
       linetype = "dashed", 
-      linewidth = 0.5
+      linewidth = 0.8
     ) +
     geom_vline(
       xintercept = limite_inf, 
@@ -967,7 +967,7 @@ render_binomial_dist <- function(
       x = label_x, 
       y = label_y_start,
       label = paste0("Esperanza (μ): ", round(esperanza, rnd)),
-      color = "blue", 
+      color = "darkblue", 
       hjust = 0,
       fontface = "bold",
       size = 4,
@@ -1029,8 +1029,8 @@ render_binomial_dist <- function(
 # Graficar la Distribución de Poisson Teórica con Esperanza y Desvío
 # ──────────────────────────────────────────────────────────────────────────────
 render_poisson_dist <- function(
+  x, 
   lambda, 
-  critical_x, 
   var_name, 
   op = "eq", 
   bar_color = "cadetblue", 
@@ -1047,7 +1047,7 @@ render_poisson_dist <- function(
   # Limitar el eje X para que no grafique barras invisibles infinitas
   x_max <- ceiling(lambda + (3 * desvio))
   
-  # 2. Generar el espacio muestral acotado (0 a n)
+  # 2. Generar el espacio muestral completo (0 a n)
   df_pois <- data.frame(
     Eventos = 0:x_max,
     Probabilidad = dpois(0:x_max, lambda = lambda)
@@ -1055,16 +1055,16 @@ render_poisson_dist <- function(
   
   # 3. LÓGICA DINÁMICA DE RESALTADO: Evalúa qué barras cumplen la condición
   df_pois$Cumple <- switch(op,
-                          "eq"  = (df_pois$Eventos %in% critical_x),
-                          "lt"  = (df_pois$Eventos  <   critical_x),
-                          "lte" = (df_pois$Eventos  <=  critical_x),
-                          "gt"  = (df_pois$Eventos  >   critical_x),
-                          "gte" = (df_pois$Eventos  >=  critical_x)
+                          "eq"  = (df_pois$Eventos %in% x),
+                          "lt"  = (df_pois$Eventos  <   x),
+                          "lte" = (df_pois$Eventos  <=  x),
+                          "gt"  = (df_pois$Eventos  >   x),
+                          "gte" = (df_pois$Eventos  >=  x)
   )
 
   # 4. Posicionamiento de leyendas
   label_x <- x_max * 0.8
-  label_y_start <- max(df_pois$Probabilidad) * 1.1
+  label_y_start <- max(df_pois$Probabilidad)
   label_spacing <- max(df_pois$Probabilidad) * 0.1
   
   # 5. Gráfico con ggplot2
@@ -1090,9 +1090,9 @@ render_poisson_dist <- function(
     # Líneas de parámetros teóricos
     geom_vline(
       xintercept = esperanza, 
-      color = "blue", 
+      color = "darkblue", 
       linetype = "dashed", 
-      linewidth = 0.5
+      linewidth = 0.8
     ) +
     geom_vline(
       xintercept = limite_inf, 
@@ -1146,7 +1146,7 @@ render_poisson_dist <- function(
       x = label_x, 
       y = label_y_start,
       label = paste0("λ (μ = σ²): ", round(esperanza, rnd)),
-      color = "blue", 
+      color = "darkblue", 
       hjust = 0,
       fontface = "bold",
       size = 4,
@@ -1475,36 +1475,18 @@ cat(
 base <- 15/30
 
 # ───────────────────────────────────
-# 6a) Por lo menos 6 consultas en 20 minutos: P(X >= 6)
+# 6a) Por lo menos 6 consultas en 20 minutos
 prob_6a <- calculate_poisson_probability(x = 6, lambda = base * 20, op = "gte")
 
-g_pois_6a <- render_poisson_dist(
-  lambda = base * 20,
-  critical_x = 6,
-  op = "gte",
-  var_name = "Por lo menos 6 consultas en 20 minutos"
-)
-
 # ───────────────────────────────────
-# 6b) A lo sumo 12 consultas en 40 minutos: P(X <= 12)
+# 6b) A lo sumo 12 consultas en 40 minutos
 prob_6b <- calculate_poisson_probability(x = 12, lambda = base * 40, op = "lte")
 
-g_pois_6b <- render_poisson_dist(
-  lambda = base * 20,
-  critical_x = 12,
-  op = "lte",
-  var_name = "A lo sumo 12 consultas en 40 minutos"
-)
-
 # ───────────────────────────────────
-# 6c) Más de 7 y menos de 10 consultas en 30 minutos: P(7 < X < 10)
-prob_6c <- calculate_poisson_probability(x = 8:9, lambda = base * 30)
+# 6c) Más de 7 y menos de 10 consultas en 30 minutos: P(7 < X < 10) -> P(X = 8) - P(X = 9)
+prob_6c <- calculate_poisson_probability(x = 8, lambda = base * 30) + 
+  calculate_poisson_probability(x = 9, lambda = base * 30)
 
-g_pois_6c <- render_poisson_dist(
-  lambda = base * 20,
-  critical_x = 8:9,
-  var_name = "Más de 7 y menos de 10 consultas en 30 minutos"
-)
 
 message("\nANÁLISIS DEL MODELO DE POISSON\n")
 
@@ -1521,6 +1503,13 @@ cat(
   prob_6c, "\n"
 )
 
+# ───────────────────────────────────
+# Generar el gráfico teórico para consultas en 20 min
+g_pois_6a <- render_poisson_dist(
+  lambda = base * 20, 
+  var_name = "Consultas en 20 Minutos"
+)
+print(g_pois_6a)
 
 # ------------------------------------------------------------------------------
 # GRAFICAR Y GUARDAR RESULTADOS
@@ -1536,8 +1525,6 @@ if(graficar) {
   print(g_binom_5c)
   print(g_binom_5d)
   print(g_pois_6a)
-  print(g_pois_6b)
-  print(g_pois_6c)
 }
 
 if(guardar) {
@@ -1548,9 +1535,7 @@ if(guardar) {
   ggsave("output/binomial_lte4_lte8_satisfechos.jpg", g_binom_5b, width = 9, height = 5, dpi = 300)
   ggsave("output/binomial_lt5_insatisfechos.jpg", g_binom_5c, width = 9, height = 5, dpi = 300)
   ggsave("output/binomial_eq10_muy_insatisfechos.jpg", g_binom_5d, width = 9, height = 5, dpi = 300)
-  ggsave("output/poisson_gte6_20minutos.jpg", g_pois_6a, width = 9, height = 5, dpi = 300)
-  ggsave("output/poisson_lte12_40minutos.jpg", g_pois_6b, width = 9, height = 5, dpi = 300)
-  ggsave("output/poisson_lt7_lt10_30minutos.jpg", g_pois_6c, width = 9, height = 5, dpi = 300)
+  ggsave("output/poisson_20minutos.jpg", g_pois_6a, width = 9, height = 5, dpi = 300)
 
   # Guardar resultados en CSV
   write.csv(res_tiempo$tabla_frecuencias, "output/tabla_frecuencias_tiempo_estudio.csv", row.names = F)
@@ -1564,9 +1549,7 @@ if(guardar) {
   cat("• binomial_lte4_lte8_satisfechos.jpg\n")
   cat("• binomial_lt5_insatisfechos.jpg\n")
   cat("• binomial_eq10_muy_insatisfechos.jpg\n")
-  cat("• poisson_gte6_20minutos.jpg\n")
-  cat("• poisson_lte12_40minutos.jpg\n")
-  cat("• poisson_lt7_lt10_30minutos.jpg\n")
+  cat("• poisson_20minutos.jpg\n")
   cat("• tabla_frecuencias_tiempo_estudio.csv\n")
   cat("• tabla_frecuencias_satisfaccion.csv\n")
 }
