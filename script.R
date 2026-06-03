@@ -962,14 +962,16 @@ render_binomial_dist <- function(size,
 
     # Etiquetas de probabilidad inclinadas a 45° con margen superior ampliado
     geom_text(
-      aes(label = sprintf("%.4f", Probabilidad)),
+      aes(label = sprintf("%.4f", Probabilidad), color = Cumple),
       vjust = -0.4,
       hjust = -0.1,
       angle = 45,
-      color = "gray30",
       size = 2.5,
       fontface = "bold"
     ) +
+    
+    # Mapeo manual para los TEXTOS (TRUE = Mismo color de barra, FALSE = Gris oscuro legible)
+    scale_color_manual(values = c("FALSE" = "gray40", "TRUE" = bar_color)) +
 
     # Textos e indicadores con el color idéntico a su línea correspondiente
     annotate(
@@ -1033,15 +1035,7 @@ render_binomial_dist <- function(size,
     labs(
       title = paste("Distribución Binomial:", var_name),
       subtitle = paste0(
-        "(n = ",
-        size,
-        " | p = ",
-        round(prob, rnd),
-        " | Condición: ",
-        op,
-        " ",
-        critical_x,
-        ")"
+        "(n = ", size, " | p = ", round(prob, rnd), " | Condición: ", op, " ", critical_x, ")"
       ),
       x = x_label,
       y = "Probabilidad Teórica"
@@ -1156,14 +1150,15 @@ render_poisson_dist <- function(lambda,
 
     # Etiquetas de probabilidad inclinadas a 45° con margen superior ampliado
     geom_text(
-      aes(label = sprintf("%.4f", Probabilidad)),
+      aes(label = sprintf("%.4f", Probabilidad), color = Cumple),
       vjust = -0.4,
       hjust = -0.1,
       angle = 45,
-      color = "gray30",
       size = 2.5,
       fontface = "bold"
     ) +
+    
+    scale_color_manual(values = c("FALSE" = "gray40", "TRUE" = bar_color)) +
 
     # Textos e indicadores con el color idéntico a su línea correspondiente
     annotate(
@@ -1839,16 +1834,7 @@ mostrar_consigna_5 <- function() {
       cat(
         "────────────────────────────────────────────────────────────────────────\n"
       )
-      cat(" CONCLUSIÓN BINOMIAL:\n")
-      cat(" El rango de 'Satisfechos' entre 4 y 8 alumnos presenta la mayor concentración\n")
-      cat(
-        sprintf(
-          " de probabilidad (%.2f%%), alineándose con la esperanza matemática del modelo (μ = %.2f).\n",
-          prob_5b * 100,
-          n_muestra * p_satisfecho
-        )
-      )
-      cat("\n-> Gráficos exportados con éxito en la carpeta /output.\n")
+      cat("-> Gráficos exportados con éxito en la carpeta /output.\n")
       cat(
         "========================================================================\n\n"
       )
@@ -1979,16 +1965,7 @@ mostrar_consigna_6 <- function() {
       cat(
         "────────────────────────────────────────────────────────────────────────\n"
       )
-      cat(" CONCLUSIÓN POISSON:\n")
-      cat(" Es altamente crítico notar que la probabilidad de recibir a lo sumo 12\n")
-      cat(
-        sprintf(
-          " consultas en 40 minutos es extremadamente baja (%.2f%%). Esto indica que\n",
-          prob_6b * 100
-        )
-      )
-      cat(" la demanda en hora pico saturará casi con seguridad la capacidad docente.\n")
-      cat("\n-> Gráficos de distribución de eventos guardados en /output.\n")
+      cat("-> Gráficos de distribución de eventos guardados en /output.\n")
       cat(
         "========================================================================\n\n"
       )
@@ -2111,26 +2088,13 @@ mostrar_consigna_7 <- function() {
         )
       )
       cat(sprintf(
-        "     [c] Percentil 97.5%%  Umbral de Excedencia =>  %.2f cm\n",
+        "     [c] Percentil 97.5%%   Umbral de Excedencia =>  %.2f cm\n",
         valor_7c
       ))
       cat(
         "────────────────────────────────────────────────────────────────────────\n"
       )
-      cat(" CONCLUSIÓN NORMAL (Regla Empírica):\n")
-      cat(
-        sprintf(
-          " El %.2f%% de la población se concentra en el rango de estaturas medias.\n",
-          prob_7b * 100
-        )
-      )
-      cat(
-        sprintf(
-          " Solo un 2.5%% de los alumnos excede la estatura límite de %.2f cm.\n",
-          valor_7c
-        )
-      )
-      cat("\n-> Curva de Gauss y áreas de probabilidad exportadas a /output.\n")
+      cat("-> Curva de Gauss y áreas de probabilidad exportadas a /output.\n")
       cat(
         "========================================================================\n"
       )
