@@ -50,7 +50,7 @@ calculate_frequencies <- function(vector) {
   # prop.table(): Toma una tabla de frecuencias y calcula proporciones
   fr <- prop.table(fi) # Frecuencia relativa
   Fr <- cumsum(fr) # Frecuencia relativa acumulada
-  
+
   # Devolver lista con nombres para facilitar el acceso
   return(list(
     fi = fi,
@@ -76,7 +76,7 @@ create_df <- function(freq_list,
   # round(..., n): Redondea a n decimales
   frec_rel <- round(as.vector(freq_list$fr), rnd)
   frec_rel_acum <- round(as.vector(freq_list$Fr), rnd)
-  
+
   # ───────────────────────────────────
   # Construimos el dataframe a partir de los vectores
   # data.frame(): Crea una tabla de datos
@@ -100,7 +100,7 @@ create_df <- function(freq_list,
       Frec_Rel_Acum = frec_rel_acum
     )
   }
-  
+
   return(tabla_frec)
 }
 
@@ -110,7 +110,7 @@ create_df <- function(freq_list,
 # ──────────────────────────────────────────────────────────────────────────────
 sturges_breaks <- function(vector) {
   # vector: vector numérico
-  
+
   # ───────────────────────────────────
   # Calcular número de clases con Sturges
   # ceiling(): Redondea al alza al entero más cercano
@@ -118,16 +118,16 @@ sturges_breaks <- function(vector) {
     # length(): Obtiene el número de elementos de un objeto
     length(vector)
   ))
-  
+
   # ───────────────────────────────────
   # Calcular rango
   # range(): Devuelve un vector con el número mínimo y máximo
   rango <- range(vector)
-  
+
   # ───────────────────────────────────
   # Calcular amplitud
   amplitud <- ceiling((rango[2] - rango[1]) / k)
-  
+
   # ───────────────────────────────────
   # Construir puntos de cortes
   # seq(): Genera secuencias de números con una progresión aritmética
@@ -143,7 +143,7 @@ sturges_breaks <- function(vector) {
     # aunque el último puede tener frcuencia absoluta igual a cero
     # length.out = k + 1
   )
-  
+
   return(list(breaks = breaks, amplitude = amplitud))
 }
 
@@ -158,7 +158,7 @@ sturges_breaks <- function(vector) {
 class_marks_with_breaks <- function(breaks) {
   # Toma los puntos de corte y promedia los vecinos
   xi <- (head(breaks, -1) + tail(breaks, -1)) / 2
-  
+
   return(xi)
 }
 
@@ -167,20 +167,20 @@ class_marks_with_breaks <- function(breaks) {
 # Se utiliza cuando solo se tiene el factor 'clases' y no los cortes originales.
 class_marks_with_intervals <- function(intervals) {
   # intervals: vector de intervalos tipo factor generado por cut()
-  
+
   # Extraer nombres de intervalos
   # levels(): Extrae los nombres de los intervalos
   intervalos <- levels(intervals)
-  
+
   # Limpiar símbolos
   # gsub(): Busca y reemplaza todas las ocurrencias de un patrón específico
   # dentro de una o más cadenas de texto
   ext <- gsub("\\[|\\)|\\]", "", intervalos)
-  
+
   # Separar por coma
   # strsplit(): Divide un vector de caracteres en subcadenas
   ext <- strsplit(ext, ",")
-  
+
   # Promediar los extremos
   # sapply(): Aplica una función a cada elemento de un vector
   xi <- sapply(
@@ -192,7 +192,7 @@ class_marks_with_intervals <- function(intervals) {
       mean(as.numeric(v))
     }
   )
-  
+
   return(xi)
 }
 
@@ -207,13 +207,13 @@ calculate_central_measures <- function(vector,
                                        breaks = NULL,
                                        amplitude = NULL) {
   if (!is.null(class_marks) &&
-      !is.null(breaks) && !is.null(amplitude)) {
+    !is.null(breaks) && !is.null(amplitude)) {
     frecuencias <- as.vector(freq_list$fi)
-    
+
     # ───────────────────────────────────
     # Media
     media <- sum(class_marks * frecuencias) / sum(frecuencias)
-    
+
     # ───────────────────────────────────
     # Moda
     i_modal_class <- which.max(frecuencias) # Índice de la clase modal
@@ -221,9 +221,9 @@ calculate_central_measures <- function(vector,
     f0 <- ifelse(i_modal_class == 1, 0, frecuencias[i_modal_class - 1]) # Frec del intervalo anterior
     f1 <- frecuencias[i_modal_class] # Frec del intervalo modal
     f2 <- ifelse(i_modal_class == length(frecuencias), 0, frecuencias[i_modal_class + 1]) # Frec del intervalo posterior
-    
+
     moda <- L_m + ((f1 - f0) / ((f1 - f0) + (f1 - f2))) * amplitude
-    
+
     # ───────────────────────────────────
     # Mediana
     mediana <- calculate_grouped_quantiles(0.50, freq_list$Fi, frecuencias, breaks, amplitude)
@@ -234,7 +234,7 @@ calculate_central_measures <- function(vector,
     # paste(): Concatena elementos de texto con un separador
     moda <- paste(as.numeric(names(frec[frec == max(frec)])), collapse = ", ")
   }
-  
+
   # Data Frame
   return(
     central_measures <- data.frame(
@@ -258,7 +258,7 @@ calculate_grouped_quantiles <- function(p, Fi, frequencies, breaks, amplitude) {
   L <- breaks[i_class]
   F_ant <- ifelse(i_class == 1, 0, Fi[i_class - 1])
   f_i <- frequencies[i_class]
-  
+
   return(L + ((n_p - F_ant) / f_i) * amplitude)
 }
 
@@ -274,12 +274,12 @@ calculate_position_measures <- function(vector,
   if (!is.null(breaks) && !is.null(amplitude)) {
     # Caso A: Variable Continua (Agrupada por intervalos)
     frecuencias <- as.vector(freq_list$fi)
-    
+
     # Cuartiles mediante interpolación lineal
     Q1 <- calculate_grouped_quantiles(0.25, freq_list$Fi, frecuencias, breaks, amplitude)
     Q2 <- calculate_grouped_quantiles(0.50, freq_list$Fi, frecuencias, breaks, amplitude)
     Q3 <- calculate_grouped_quantiles(0.75, freq_list$Fi, frecuencias, breaks, amplitude)
-    
+
     # Percentiles mediante interpolación (deciles 10% al 90%)
     probs <- seq(0.1, 0.9, by = 0.1)
     perc_valores <- sapply(probs, function(p) {
@@ -289,17 +289,18 @@ calculate_position_measures <- function(vector,
   } else {
     # Caso B: Variable Discreta o Cruda (Uso de quantile() base)
     cuartiles <- quantile(vector,
-                          probs = c(0.25, 0.5, 0.75),
-                          na.rm = T)
+      probs = c(0.25, 0.5, 0.75),
+      na.rm = T
+    )
     Q1 <- cuartiles["25%"]
     Q2 <- cuartiles["50%"]
     Q3 <- cuartiles["75%"]
-    
+
     percentiles_raw <- quantile(vector, seq(0.1, 0.9, by = 0.1), na.rm = T)
     perc_valores <- as.vector(percentiles_raw)
     perc_nombres <- names(percentiles_raw)
   }
-  
+
   # Construcción de DataFrames de salida
   cuartiles_df <- data.frame(
     Q1 = round(as.numeric(Q1), rnd),
@@ -307,9 +308,9 @@ calculate_position_measures <- function(vector,
     Q3 = round(as.numeric(Q3), rnd),
     Rango_IC = round(as.numeric(Q3 - Q1), rnd)
   )
-  
+
   percentiles_df <- data.frame(Percentil = perc_nombres, Valor = round(perc_valores, rnd))
-  
+
   return(list(cuartiles = cuartiles_df, percentiles = percentiles_df))
 }
 
@@ -325,17 +326,17 @@ calculate_dispersion_measures <- function(vector,
   if (!is.null(class_marks)) {
     # Caso A: Variable Continua (Agrupada por intervalos)
     frecuencias <- as.vector(freq_list$fi)
-    
+
     # Varianza
     n_total <- sum(frecuencias)
     varianza <- sum(frecuencias * (class_marks - mean)^2) / (n_total - 1)
-    
+
     # Desvió Estándar
     desvio_estandar <- sqrt(varianza)
-    
+
     # Coef de Variación
     coef_variacion <- (desvio_estandar / mean) * 100
-    
+
     # Data Frame
     medidas_dispersion <- data.frame(
       Varianza = round(varianza, rnd),
@@ -347,7 +348,7 @@ calculate_dispersion_measures <- function(vector,
     varianza <- var(vector, na.rm = T)
     desvio_estandar <- sd(vector, na.rm = T)
     coef_variacion <- (desvio_estandar / mean) * 100
-    
+
     # Data Frame
     medidas_dispersion <- data.frame(
       Varianza = round(varianza, rnd),
@@ -355,7 +356,7 @@ calculate_dispersion_measures <- function(vector,
       Coef_Variacion = percent(round(coef_variacion / 100, rnd), accuracy = 0.01)
     )
   }
-  
+
   return(medidas_dispersion)
 }
 
@@ -380,19 +381,19 @@ analyze_continuous_variable <- function(vector, var_name, rnd = 4) {
   # ───────────────────────────────────
   # Crear header
   message("\nANÁLISIS DE VARIABLE CONTINUA: ", var_name)
-  
+
   # ───────────────────────────────────
   # 1. Tabla de frecuencias agrupadas
-  
+
   # Llamar a la función sturges_breaks() para calcular los puntos de cortes
   cortes <- sturges_breaks(vector)$breaks
-  
+
   # Calcular amplitud
   amplitud <- sturges_breaks(vector)$amplitude
-  
+
   # Construir marcas de clase
   marcas <- class_marks_with_breaks(cortes)
-  
+
   # Clasificar datos en intervalos
   # cut(): Divide un vector numérico en intervalos (clases)
   clases <- cut(
@@ -405,10 +406,10 @@ analyze_continuous_variable <- function(vector, var_name, rnd = 4) {
     # Esto asegura que el valor mínimo se incluya en el primer intervalo
     include.lowest = T
   )
-  
+
   # Construir tabla de frecuencias
   frecs <- calculate_frequencies(clases)
-  
+
   # Crear dataframe con resultados
   tabla_frec <- create_df(
     freq_list = frecs,
@@ -416,19 +417,19 @@ analyze_continuous_variable <- function(vector, var_name, rnd = 4) {
     class_intervals = clases,
     breaks = marcas
   )
-  
+
   # ───────────────────────────────────
   # 2. Medidas de tendencia central
   medidas_centrales <- calculate_central_measures(vector, frecs, rnd, marcas, cortes, amplitud)
-  
+
   # ───────────────────────────────────
   # 3. Medidas de posición
   medidas_posicion <- calculate_position_measures(vector, frecs, rnd, cortes, amplitud)
-  
+
   # ───────────────────────────────────
   # 4. Medidas de dispersión
   medidas_dispersion <- calculate_dispersion_measures(vector, frecs, rnd, medidas_centrales$Media, marcas)
-  
+
   # ───────────────────────────────────
   # 5. Resultados
   resultados <- list(
@@ -439,7 +440,7 @@ analyze_continuous_variable <- function(vector, var_name, rnd = 4) {
     n = length(vector),
     cortes = cortes
   )
-  
+
   return(resultados)
 }
 
@@ -451,32 +452,32 @@ analyze_discrete_variable <- function(vector, var_name, rnd = 4) {
   # ───────────────────────────────────
   # Crear header
   message("\nANÁLISIS DE VARIABLE DISCRETA: ", var_name)
-  
+
   # ───────────────────────────────────
   # 1. Tabla de frecuencias simple
-  
+
   # Construir tabla de frecuencias
   frecs <- calculate_frequencies(vector)
-  
+
   # Crear dataframe con resultados
   tabla_frec <- create_df(freq_list = frecs, rnd = rnd)
-  
+
   # ───────────────────────────────────
   # 2. Medidas de tendencia central
   medidas_centrales <- calculate_central_measures(vector, frecs, rnd)
-  
+
   # ───────────────────────────────────
   # 3. Medidas de posición
-  
+
   medidas_posicion <- calculate_position_measures(vector, frecs, rnd)
-  
+
   # ───────────────────────────────────
   # 4. Medidas de dispersión
   medidas_dispersion <- calculate_dispersion_measures(vector, frecs, rnd, medidas_centrales$Media)
-  
+
   # ───────────────────────────────────
   # 5. Resultados
-  
+
   resultados <- list(
     medidas_centrales = medidas_centrales,
     medidas_posicion = medidas_posicion,
@@ -484,7 +485,7 @@ analyze_discrete_variable <- function(vector, var_name, rnd = 4) {
     tabla_frecuencias = tabla_frec,
     n = length(vector)
   )
-  
+
   return(resultados)
 }
 
@@ -500,40 +501,41 @@ analyze_ordinal_variable <- function(vector,
   # ───────────────────────────────────
   # Crear header
   message("\nANÁLISIS DE VARIABLE ORDINAL: ", var_name)
-  
+
   # ───────────────────────────────────
   # 1. Tabla de frecuencias simple
-  
+
   # Convertir a factor ordenado si es necesario
   if (!is.ordered(vector) && !is.null(levels) && !is.null(labels)) {
     vector <- factor(vector,
-                     levels = levels,
-                     labels = labels,
-                     ordered = T)
+      levels = levels,
+      labels = labels,
+      ordered = T
+    )
   }
-  
+
   # Construir tabla de frecuencias
   frecs <- calculate_frequencies(vector)
-  
+
   # Crear dataframe con resultados
   tabla_frec <- create_df(freq_list = frecs, rnd = rnd)
-  
+
   # ───────────────────────────────────
   # 2. Medidas descriptivas
   vector_num <- as.numeric(vector)
-  
+
   moda <- names(frecs$fi)[which.max(frecs$fi)]
   q1 <- levels(vector)[quantile(vector_num, 0.25, na.rm = T, type = 1)]
   mediana <- levels(vector)[quantile(vector_num, 0.5, na.rm = T, type = 1)]
   q3 <- levels(vector)[quantile(vector_num, 0.75, na.rm = T, type = 1)]
-  
+
   medidas_df <- data.frame(
     Moda = moda,
     Q1 = q1,
     Mediana = mediana,
     Q3 = q3
   )
-  
+
   # ───────────────────────────────────
   # 3. Resultados
   resultados <- list(
@@ -542,7 +544,7 @@ analyze_ordinal_variable <- function(vector,
     niveles = levels(vector),
     n = length(vector)
   )
-  
+
   return(resultados)
 }
 
@@ -555,8 +557,7 @@ calculate_binomial_probability <- function(x,
                                            prob,
                                            op = "eq",
                                            rnd = 4) {
-  probabilidad <- switch(
-    op,
+  probabilidad <- switch(op,
     # X =  x (soporta escalares o vectores)
     "eq" = sum(dbinom(x, size = size, prob = prob)),
     # X <  x (menor estricto)
@@ -578,7 +579,7 @@ calculate_binomial_probability <- function(x,
       lower.tail = F
     )
   )
-  
+
   return(round(probabilidad, rnd))
 }
 
@@ -587,8 +588,7 @@ calculate_binomial_probability <- function(x,
 # Calcular probabilidades de Poisson con redondeo simétrico
 # ──────────────────────────────────────────────────────────────────────────────
 calculate_poisson_probability <- function(x, lambda, op = "eq", rnd = 4) {
-  probabilidad <- switch(
-    op,
+  probabilidad <- switch(op,
     # X =  x (soporta escalares o vectores)
     "eq"  = sum(dpois(x, lambda = lambda)),
     # X <  x (menor estricto)
@@ -600,7 +600,7 @@ calculate_poisson_probability <- function(x, lambda, op = "eq", rnd = 4) {
     # X >= x (mayor o igual)
     "gte" = ppois(x - 1, lambda = lambda, lower.tail = F)
   )
-  
+
   return(round(probabilidad, rnd))
 }
 
@@ -613,8 +613,7 @@ calculate_normal_probability <- function(mean,
                                          critical_x,
                                          op = "lte",
                                          rnd = 4) {
-  probabilidad <- switch(
-    op,
+  probabilidad <- switch(op,
     # X <= x (menor o igual)
     "lte" = pnorm(critical_x[1], mean = mean, sd = sd),
     # X >= x (mayor o igual)
@@ -627,7 +626,7 @@ calculate_normal_probability <- function(mean,
     # a <= X <= b (Comprendido entre dos valores) -> P(b) - P(a)
     "bet" = pnorm(critical_x[2], mean = mean, sd = sd) - pnorm(critical_x[1], mean = mean, sd = sd)
   )
-  
+
   return(round(probabilidad, rnd))
 }
 
@@ -641,8 +640,7 @@ calculate_normal_quantile <- function(mean,
                                       op = "lte",
                                       rnd = 4) {
   # qnorm() calcula el valor de la variable dado un nivel de probabilidad acumulada
-  valor_x <- switch(
-    op,
+  valor_x <- switch(op,
     "lte" = qnorm(p = prob, mean = mean, sd = sd),
     "gte" = qnorm(
       p = prob,
@@ -651,7 +649,7 @@ calculate_normal_quantile <- function(mean,
       lower.tail = F
     )
   )
-  
+
   return(round(valor_x, rnd))
 }
 
@@ -670,7 +668,7 @@ render_histogram <- function(vector,
                              color = "steelblue") {
   # Crear dataframe con los datos de la tabla de frecuencias
   tipo_frec <- frequency_table$Frec_Abs
-  
+
   df_barras <- data.frame(
     xmin = head(breaks, -1),
     # Límites inferiores
@@ -679,7 +677,7 @@ render_histogram <- function(vector,
     y = tipo_frec,
     marca_clase = frequency_table$Marca_Clase
   )
-  
+
   p <- ggplot() +
     geom_rect(
       data = df_barras,
@@ -703,7 +701,7 @@ render_histogram <- function(vector,
       plot.title = element_text(hjust = 0.5, face = "bold"),
       axis.title = element_text(face = "bold")
     )
-  
+
   # Mostrar valores encima de las barras
   if (show_values) {
     p <- p +
@@ -716,11 +714,11 @@ render_histogram <- function(vector,
         size = 3.2
       )
   }
-  
+
   # Curva de densidad
   if (show_density) {
     df_densidad <- data.frame(x = vector)
-    
+
     p <- p +
       geom_density(
         data = df_densidad,
@@ -735,25 +733,25 @@ render_histogram <- function(vector,
         adjust = 0.8
       )
   }
-  
+
   # Bloque de Medidas (Centrales y de Posición)
   y_max <- max(tipo_frec)
   label_y_start <- y_max * 0.95
   label_spacing <- y_max * 0.05
   x_range <- range(vector)
   label_x <- x_range[2] * 0.80 # Ajustado un poco más a la izquierda para que quepa todo
-  
+
   # 1. Líneas de Tendencia Central (Si existen)
   if (!is.null(descriptive_measures)) {
     # Obtener la altura máxima para posicionamiento
     y_max <- max(tipo_frec)
-    
+
     # Posicionamiento en esquina superior derecha
     x_range <- range(vector)
     label_x <- x_range[2] * 0.85
     label_y_start <- y_max * 0.95
     label_spacing <- y_max * 0.05
-    
+
     p <- p +
       geom_vline(
         xintercept = descriptive_measures$Media,
@@ -804,7 +802,7 @@ render_histogram <- function(vector,
         size = 4
       )
   }
-  
+
   # 2. Líneas de Cuartiles (Si existen)
   if (!is.null(position_measures)) {
     p <- p +
@@ -839,7 +837,7 @@ render_histogram <- function(vector,
         fontface = "bold"
       )
   }
-  
+
   return(p)
 }
 
@@ -849,7 +847,7 @@ render_histogram <- function(vector,
 # ──────────────────────────────────────────────────────────────────────────────
 render_pie_chart <- function(frequency_table, var_name, palette = "Set2") {
   porcentajes <- round(frequency_table$Frec_Rel * 100, 2)
-  
+
   ggplot(frequency_table, aes(x = "", y = Frec_Rel, fill = Categoría)) +
     geom_bar(
       stat = "identity",
@@ -866,8 +864,10 @@ render_pie_chart <- function(frequency_table, var_name, palette = "Set2") {
       fontface = "bold"
     ) +
     scale_fill_brewer(palette = palette) +
-    labs(title = paste("Distribución de", var_name),
-         fill = "Categorías") +
+    labs(
+      title = paste("Distribución de", var_name),
+      fill = "Categorías"
+    ) +
     theme_void() +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"),
@@ -893,29 +893,30 @@ render_binomial_dist <- function(size,
   desvio <- sqrt(varianza)
   limite_inf <- esperanza - desvio
   limite_sup <- esperanza + desvio
-  
+
   # 2. Generar el espacio muestral completo (0 a n)
-  df_bin <- data.frame(Exitos = 0:size,
-                       Probabilidad = dbinom(0:size, size = size, prob = prob))
-  
+  df_bin <- data.frame(
+    Exitos = 0:size,
+    Probabilidad = dbinom(0:size, size = size, prob = prob)
+  )
+
   # 3. LÓGICA DINÁMICA DE RESALTADO: Evalúa qué barras cumplen la condición
-  df_bin$Cumple <- switch(
-    op,
+  df_bin$Cumple <- switch(op,
     "eq"  = (df_bin$Exitos %in% critical_x),
     "lt"  = (df_bin$Exitos < critical_x),
     "lte" = (df_bin$Exitos <= critical_x),
     "gt"  = (df_bin$Exitos > critical_x),
     "gte" = (df_bin$Exitos >= critical_x)
   )
-  
+
   # 4. Posicionamiento de leyendas
   label_x <- size * 0.75
   label_y_start <- max(df_bin$Probabilidad) * 0.95
   label_spacing <- max(df_bin$Probabilidad) * 0.1
-  
+
   # 5. Gráfico con ggplot2
   p <- ggplot(df_bin, aes(x = Exitos, y = Probabilidad, fill = Cumple)) +
-    
+
     # Franja de dispersión típica (Esperanza ± 1 Desvío)
     geom_rect(
       aes(
@@ -927,7 +928,7 @@ render_binomial_dist <- function(size,
       fill = "orange",
       alpha = 0.05
     ) +
-    
+
     # Barras de probabilidad con colores condicionales
     geom_bar(
       stat = "identity",
@@ -935,10 +936,10 @@ render_binomial_dist <- function(size,
       alpha = 0.85,
       width = 0.8
     ) +
-    
+
     # Mapeo manual de colores: TRUE (Azul de éxito) / FALSE (Gris pasivo)
     scale_fill_manual(values = c("FALSE" = "gray85", "TRUE" = bar_color)) +
-    
+
     # Líneas de parámetros teóricos
     geom_vline(
       xintercept = esperanza,
@@ -958,7 +959,7 @@ render_binomial_dist <- function(size,
       linetype = "dotted",
       linewidth = 0.8
     ) +
-    
+
     # Etiquetas de probabilidad inclinadas a 45° con margen superior ampliado
     geom_text(
       aes(label = sprintf("%.4f", Probabilidad)),
@@ -969,7 +970,7 @@ render_binomial_dist <- function(size,
       size = 2.5,
       fontface = "bold"
     ) +
-    
+
     # Textos e indicadores con el color idéntico a su línea correspondiente
     annotate(
       "label",
@@ -991,7 +992,7 @@ render_binomial_dist <- function(size,
       fontface = "bold",
       fill = "white"
     ) +
-    
+
     # Leyenda con los parámetros teóricos
     annotate(
       "label",
@@ -1046,7 +1047,7 @@ render_binomial_dist <- function(size,
       y = "Probabilidad Teórica"
     ) +
     scale_x_continuous(breaks = 0:size) +
-    
+
     # Ampliamos el límite de Y un 20% para que las etiquetas a 45° no se corten arriba
     scale_y_continuous(limits = c(0, max(df_bin$Probabilidad) * 1.20)) +
     theme_minimal() +
@@ -1062,7 +1063,7 @@ render_binomial_dist <- function(size,
       legend.position = "none",
       panel.grid.minor = element_blank()
     )
-  
+
   return(p)
 }
 
@@ -1083,32 +1084,33 @@ render_poisson_dist <- function(lambda,
   desvio <- sqrt(varianza)
   limite_inf <- esperanza - desvio
   limite_sup <- esperanza + desvio
-  
+
   # Limitar el eje X para que no grafique barras invisibles infinitas
   x_max <- ceiling(lambda + (3 * desvio))
-  
+
   # 2. Generar el espacio muestral acotado (0 a n)
-  df_pois <- data.frame(Eventos = 0:x_max,
-                        Probabilidad = dpois(0:x_max, lambda = lambda))
-  
+  df_pois <- data.frame(
+    Eventos = 0:x_max,
+    Probabilidad = dpois(0:x_max, lambda = lambda)
+  )
+
   # 3. LÓGICA DINÁMICA DE RESALTADO: Evalúa qué barras cumplen la condición
-  df_pois$Cumple <- switch(
-    op,
+  df_pois$Cumple <- switch(op,
     "eq"  = (df_pois$Eventos %in% critical_x),
     "lt"  = (df_pois$Eventos < critical_x),
     "lte" = (df_pois$Eventos <= critical_x),
     "gt"  = (df_pois$Eventos > critical_x),
     "gte" = (df_pois$Eventos >= critical_x)
   )
-  
+
   # 4. Posicionamiento de leyendas
   label_x <- x_max * 0.8
   label_y_start <- max(df_pois$Probabilidad) * 1.1
   label_spacing <- max(df_pois$Probabilidad) * 0.1
-  
+
   # 5. Gráfico con ggplot2
   p <- ggplot(df_pois, aes(x = Eventos, y = Probabilidad, fill = Cumple)) +
-    
+
     # Franja de dispersión típica (Esperanza ± 1 Desvío)
     geom_rect(
       aes(
@@ -1120,7 +1122,7 @@ render_poisson_dist <- function(lambda,
       fill = "orange",
       alpha = 0.05
     ) +
-    
+
     # Barras de probabilidad con colores condicionales
     geom_bar(
       stat = "identity",
@@ -1128,10 +1130,10 @@ render_poisson_dist <- function(lambda,
       alpha = 0.85,
       width = 0.8
     ) +
-    
+
     # Mapeo manual de colores: TRUE (Azul de éxito) / FALSE (Gris pasivo)
     scale_fill_manual(values = c("FALSE" = "gray85", "TRUE" = bar_color)) +
-    
+
     # Líneas de parámetros teóricos
     geom_vline(
       xintercept = esperanza,
@@ -1151,7 +1153,7 @@ render_poisson_dist <- function(lambda,
       linetype = "dotted",
       linewidth = 0.8
     ) +
-    
+
     # Etiquetas de probabilidad inclinadas a 45° con margen superior ampliado
     geom_text(
       aes(label = sprintf("%.4f", Probabilidad)),
@@ -1162,7 +1164,7 @@ render_poisson_dist <- function(lambda,
       size = 2.5,
       fontface = "bold"
     ) +
-    
+
     # Textos e indicadores con el color idéntico a su línea correspondiente
     annotate(
       "label",
@@ -1184,7 +1186,7 @@ render_poisson_dist <- function(lambda,
       fontface = "bold",
       fill = "white"
     ) +
-    
+
     # Leyenda con los parámetros teóricos
     annotate(
       "label",
@@ -1216,7 +1218,7 @@ render_poisson_dist <- function(lambda,
       y = "Probabilidad Teórica"
     ) +
     scale_x_continuous(breaks = seq(0, x_max, by = ifelse(x_max > 15, 2, 1))) +
-    
+
     # Ampliamos el límite de Y un 20% para que las etiquetas a 45° no se corten arriba
     scale_y_continuous(limits = c(0, max(df_pois$Probabilidad) * 1.20)) +
     theme_minimal() +
@@ -1227,7 +1229,7 @@ render_poisson_dist <- function(lambda,
       legend.position = "none",
       panel.grid.minor = element_blank()
     )
-  
+
   return(p)
 }
 
@@ -1246,41 +1248,40 @@ render_normal_dist <- function(mean,
                                rnd = 4) {
   # 1. Generar secuencia de datos que cubra prácticamente toda la campana (μ ± 4σ)
   x_seq <- sd_vline(mean, sd, c(-4, 4))
-  
+
   # seq() crea el vector continuo para lograr una curva suave y sin dientes
   eje_x <- seq(x_seq[1], x_seq[2], length.out = 300)
-  
+
   df_norm <- data.frame(
     VariableX = eje_x,
     Densidad = dnorm(eje_x, mean = mean, sd = sd) # Altura de la curva
   )
-  
+
   # Cortes para la regla empírica
   cortes_1sd <- sd_vline(mean, sd, c(-1, 1))
   cortes_2sd <- sd_vline(mean, sd, c(-2, 2))
   cortes_3sd <- sd_vline(mean, sd, c(-3, 3))
-  
+
   # 2. Construcción de la base gráfica
   p <- ggplot(df_norm, aes(x = VariableX, y = Densidad))
-  
-  # 3. CAPAS DE SOMBREADO DINÁMICO (Se ejecutan al principio para que queden de FONDO)
-  
+
+  # 3. CAPAS DE SOMBREADO DINÁMICO
+
   # Caso A: Sombreado basado en límites físicos
   if (!is.null(critical_x)) {
     p <- p + geom_area(
-      data = subset(df_norm, switch(
-        op,
+      data = subset(df_norm, switch(op,
         "gte" = (VariableX >= critical_x[1]),
         "lte" = (VariableX <= critical_x[1]),
         "bet" = (VariableX >= critical_x[1] &
-                   VariableX <= critical_x[2])
+          VariableX <= critical_x[2])
       )),
       aes(y = Densidad),
       fill = fill_color,
       alpha = 0.4
     )
   }
-  
+
   # Caso B: Sombreado basado en cuantiles probabilísticos
   if (!is.null(prob)) {
     xi <- calculate_normal_quantile(
@@ -1289,10 +1290,9 @@ render_normal_dist <- function(mean,
       prob = prob,
       op = op
     )
-    
+
     p <- p + geom_area(
-      data = subset(df_norm, switch(
-        op,
+      data = subset(df_norm, switch(op,
         "lte" = (VariableX <= xi),
         "gte" = (VariableX >= xi)
       )),
@@ -1301,10 +1301,10 @@ render_normal_dist <- function(mean,
       alpha = 0.4
     )
   }
-  
+
   # 4. CAPAS DE ELEMENTOS GEOMÉTRICOS Y TEXTOS (Líneas verticales y etiquetas por color)
   p <- p + geom_line(color = "black", linewidth = 1) + # Línea de la campana
-    
+
     # Regla del 68% (± 1 Desvío)
     geom_vline(
       xintercept = cortes_1sd,
@@ -1330,7 +1330,7 @@ render_normal_dist <- function(mean,
       fontface = "bold",
       hjust = -0.1
     ) +
-    
+
     # Regla del 95% (± 2 Desvíos)
     geom_vline(
       xintercept = cortes_2sd,
@@ -1356,7 +1356,7 @@ render_normal_dist <- function(mean,
       fontface = "bold",
       hjust = -0.1
     ) +
-    
+
     # Regla del 99.7% (± 3 Desvíos)
     geom_vline(
       xintercept = cortes_3sd,
@@ -1382,7 +1382,7 @@ render_normal_dist <- function(mean,
       fontface = "bold",
       hjust = -0.1
     ) +
-    
+
     # Centro de la distribución (μ)
     geom_vline(
       xintercept = mean,
@@ -1399,7 +1399,7 @@ render_normal_dist <- function(mean,
       fontface = "bold",
       hjust = -0.2
     ) +
-    
+
     labs(
       title = paste("Distribución Normal:", var_name),
       subtitle = bquote(paste(
@@ -1419,7 +1419,7 @@ render_normal_dist <- function(mean,
       axis.title = element_text(face = "bold"),
       panel.grid.minor = element_blank()
     )
-  
+
   if (!is.null(prob)) {
     p <- p +
       geom_vline(
@@ -1438,7 +1438,7 @@ render_normal_dist <- function(mean,
         hjust = -0.2
       )
   }
-  
+
   return(p)
 }
 
@@ -1465,29 +1465,40 @@ tiempo_estudio <- datos$`TIEMPO_SEMANAL_ESTUDIO_HS`
 # Llamado a la función analyze_continuous_variable()
 res_tiempo <- analyze_continuous_variable(tiempo_estudio, "Tiempo de estudio semanal (horas)")
 
-cat("\nTabla de frecuencias agrupadas:\n")
-print(res_tiempo$tabla_frec, row.names = F)
-# View(res_tiempo$tabla_frec, title = "Tabla Frec. - Tiempo")
+mostrar_consigna_2a <- function() {
+  cat("\014") # Limpiar pantalla
 
-cat("\nMedidas de tendencia central:\n")
-print(res_tiempo$medidas_centrales, row.names = F)
-# View(res_tiempo$medidas_centrales, title = "Medidas Centrales - Tiempo")
+  cat("\nTabla de frecuencias agrupadas:\n")
+  print(res_tiempo$tabla_frec, row.names = F)
+  # View(res_tiempo$tabla_frec, title = "Tabla Frec. - Tiempo")
 
-cat("\nMedidas de dispersión:\n")
-print(res_tiempo$medidas_dispersion, row.names = F)
-# View(res_tiempo$medidas_dispersion, title = "Medidas Dispersión - Tiempo")
+  cat("\nMedidas de tendencia central:\n")
+  print(res_tiempo$medidas_centrales, row.names = F)
+  # View(res_tiempo$medidas_centrales, title = "Medidas Centrales - Tiempo")
 
-cat("\nMedidas de posición - Cuartiles: \n")
-print(res_tiempo$medidas_posicion$cuartiles, row.names = F)
-# View(res_tiempo$medidas_posicion$cuartiles, title = "Medidas Posición - Tiempo")
+  cat("\nMedidas de dispersión:\n")
+  print(res_tiempo$medidas_dispersion, row.names = F)
+  # View(res_tiempo$medidas_dispersion, title = "Medidas Dispersión - Tiempo")
 
-cat("\nMedidas de posición - Percentiles: \n")
-print(res_tiempo$medidas_posicion$percentiles, row.names = F)
+  cat("\nMedidas de posición - Cuartiles: \n")
+  print(res_tiempo$medidas_posicion$cuartiles, row.names = F)
+  # View(res_tiempo$medidas_posicion$cuartiles, title = "Medidas Posición - Tiempo")
 
-cat("\nRESUMEN ESTADÍSTICO\n")
-cat("• Total de observaciones:", res_tiempo$n, "\n")
-cat("• Número de intervalos:", length(res_tiempo$cortes) - 1, "\n")
-cat("• Amplitud de clase:", diff(res_tiempo$cortes)[1], "\n")
+  cat("\nMedidas de posición - Percentiles: \n")
+  print(res_tiempo$medidas_posicion$percentiles, row.names = F)
+
+  cat("\nRESUMEN ESTADÍSTICO\n")
+  cat("• Total de observaciones:", res_tiempo$n, "\n")
+  cat("• Número de intervalos:", length(res_tiempo$cortes) - 1, "\n")
+  cat("• Amplitud de clase:", diff(res_tiempo$cortes)[1], "\n")
+
+  write.csv(
+    res_tiempo$tabla_frecuencias,
+    "output/tabla_frecuencias_tiempo_estudio.csv",
+    row.names = F
+  )
+  cat("\n-> Tabla de frecuencias exportada a /output.\n")
+}
 
 
 # ------------------------------------------------------------------------------
@@ -1500,121 +1511,168 @@ satisfaccion <- datos$`SATISF_CON_CARRERA`
 # Crear un dataframe con niveles de satisfacción
 # y extraer la segunda columna para forman el vector
 df_nivel <- read_excel(ruta_archivo,
-                       sheet = 2,
-                       skip = 1,
-                       col_names = F)
+  sheet = 2,
+  skip = 1,
+  col_names = F
+)
 satisfaccion_niveles <- df_nivel$...1
 satisfaccion_etiquetas <- df_nivel$...2
 
 res_satisfaccion <- analyze_ordinal_variable(satisfaccion,
-                                             "Satisfacción con la carrera",
-                                             levels = satisfaccion_niveles,
-                                             labels = satisfaccion_etiquetas)
+  "Satisfacción con la carrera",
+  levels = satisfaccion_niveles,
+  labels = satisfaccion_etiquetas
+)
 
-cat("\nTabla de frecuencias:\n")
-print(res_satisfaccion$tabla_frecuencias, row.names = F)
-# View(res_satisfaccion$tabla_frecuencias, title = "Tabla Frec. - Satisfacción")
+mostrar_consigna_2b <- function() {
+  cat("\014") # Limpiar pantalla
 
-cat("\nMedidas descriptivas:\n")
-print(res_satisfaccion$medidas_descriptivas, row.names = F)
-# View(res_satisfaccion$medidas_descriptivas, title = "Medidas Descriptivas - Satisfacción")
+  cat("\nTabla de frecuencias:\n")
+  print(res_satisfaccion$tabla_frecuencias, row.names = F)
+  # View(res_satisfaccion$tabla_frecuencias, title = "Tabla Frec. - Satisfacción")
+
+  cat("\nMedidas descriptivas:\n")
+  print(res_satisfaccion$medidas_descriptivas, row.names = F)
+  # View(res_satisfaccion$medidas_descriptivas, title = "Medidas Descriptivas - Satisfacción")
+
+  write.csv(
+    res_satisfaccion$tabla_frecuencias,
+    "output/tabla_frecuencias_satisfaccion.csv",
+    row.names = F
+  )
+  cat("\n-> Tabla de frecuencias exportada a /output.\n")
+}
 
 
 # ------------------------------------------------------------------------------
 # 3) MEDIDAS DESCRIPTIVAS (Consigna 3)
 # ------------------------------------------------------------------------------
 
-# ───────────────────────────────────
-# Crear header
-message("\nINTERPRETACIÓN DE MEDIDAS DESCRIPTIVAS\n")
+mostrar_consigna_3 <- function() {
+  cat("\014") # Limpiar pantalla
 
-# Para tiempo de estudio
-cat("\nTIEMPO DE ESTUDIO SEMANAL:\n")
-cat(
-  "• Los estudiantes dedican en promedio",
-  res_tiempo$medidas_centrales$Media,
-  "horas semanales al estudio\n"
-)
-cat("• El 50% estudia menos de",
+  # ───────────────────────────────────
+  # Crear header
+  message("\nINTERPRETACIÓN DE MEDIDAS DESCRIPTIVAS\n")
+
+  # Para tiempo de estudio
+  cat("\nTIEMPO DE ESTUDIO SEMANAL:\n")
+  cat(
+    "• Los estudiantes dedican en promedio",
+    res_tiempo$medidas_centrales$Media,
+    "horas semanales al estudio\n"
+  )
+  cat(
+    "• El 50% estudia menos de",
     res_tiempo$medidas_centrales$Mediana,
-    "horas semanales\n")
-cat(
-  "• La dispersión es de ±",
-  res_tiempo$medidas_dispersion$Desvio_Estandar,
-  "horas alrededor de la media\n"
-)
-cat(
-  "• El coeficiente de variación es del",
-  res_tiempo$medidas_dispersion$Coef_Variacion,
-  "\n"
-)
+    "horas semanales\n"
+  )
+  cat(
+    "• La dispersión es de ±",
+    res_tiempo$medidas_dispersion$Desvio_Estandar,
+    "horas alrededor de la media\n"
+  )
+  cat(
+    "• El coeficiente de variación es del",
+    res_tiempo$medidas_dispersion$Coef_Variacion,
+    "\n"
+  )
 
-# Para satisfacción
-cat("\n\nSATISFACCIÓN CON LA CARRERA:\n")
-cat("• El nivel más frecuente es:",
+  # Para satisfacción
+  cat("\n\nSATISFACCIÓN CON LA CARRERA:\n")
+  cat(
+    "• El nivel más frecuente es:",
     res_satisfaccion$medidas_descriptivas$Moda,
-    "\n")
-cat(
-  "• El",
-  round(max(
-    res_satisfaccion$tabla_frecuencias$Frec_Rel
-  ) * 100, 2),
-  "% de los estudiantes está",
-  res_satisfaccion$medidas_descriptivas$Moda,
-  "\n"
-)
+    "\n"
+  )
+  cat(
+    "• El",
+    round(max(
+      res_satisfaccion$tabla_frecuencias$Frec_Rel
+    ) * 100, 2),
+    "% de los estudiantes está",
+    res_satisfaccion$medidas_descriptivas$Moda,
+    "\n"
+  )
+}
+
 
 # ------------------------------------------------------------------------------
 # 4) REPRESENTACIÓN GRÁFICA (Consigna 4)
 # ------------------------------------------------------------------------------
 
-# ───────────────────────────────────
-# 4a) Histograma para tiempo de estudio
-histograma <- render_histogram(
-  vector = tiempo_estudio,
-  breaks = res_tiempo$cortes,
-  var_name = "Tiempo de estudio semanal (horas)",
-  frequency_table = res_tiempo$tabla_frecuencias,
-  show_values = T,
-  show_density = T,
-  descriptive_measures = res_tiempo$medidas_centrales,
-  position_measures = res_tiempo$medidas_posicion$cuartiles
-)
+mostrar_consigna_4 <- function() {
+  cat("\014") # Limpiar pantalla
 
-# ───────────────────────────────────
-# 4b) Diagrama circular para satisfacción
-diagrama <- render_pie_chart(res_satisfaccion$tabla_frecuencias,
-                             "Satisfacción con la carrera")
+  # ───────────────────────────────────
+  # 4a) Histograma para tiempo de estudio
+  histograma <- render_histogram(
+    vector = tiempo_estudio,
+    breaks = res_tiempo$cortes,
+    var_name = "Tiempo de estudio semanal (horas)",
+    frequency_table = res_tiempo$tabla_frecuencias,
+    show_values = T,
+    show_density = T,
+    descriptive_measures = res_tiempo$medidas_centrales,
+    position_measures = res_tiempo$medidas_posicion$cuartiles
+  )
+  print(histograma)
 
-# ───────────────────────────────────
-# 4c) Análisis de gráficos
+  # ───────────────────────────────────
+  # 4b) Diagrama circular para satisfacción
+  diagrama_circular <- render_pie_chart(
+    res_satisfaccion$tabla_frecuencias,
+    "Satisfacción con la carrera"
+  )
+  print(diagrama_circular)
 
-message("\nANÁLISIS DE GRÁFICOS\n")
+  # ───────────────────────────────────
+  # 4c) Análisis de gráficos
 
-cat("\nHISTOGRAMA:\n")
-if (res_tiempo$medidas_centrales$Media
-    > res_tiempo$medidas_centrales$Mediana) {
-  distribucion <- "es Asimétrica positiva"
-} else if (res_tiempo$medidas_centrales$Media
-           < res_tiempo$medidas_centrales$Mediana) {
-  distribucion <- "es Asimétrica negativa"
-} else {
-  distribucion <- "no presenta asimetría"
-}
+  message("\nANÁLISIS DE GRÁFICOS\n")
 
-cat("• La distribución", distribucion, "\n")
-cat("• Intervalo modal:",
+  cat("\nHISTOGRAMA:\n")
+  if (res_tiempo$medidas_centrales$Media
+  > res_tiempo$medidas_centrales$Mediana) {
+    distribucion <- "es Asimétrica positiva"
+  } else if (res_tiempo$medidas_centrales$Media
+  < res_tiempo$medidas_centrales$Mediana) {
+    distribucion <- "es Asimétrica negativa"
+  } else {
+    distribucion <- "no presenta asimetría"
+  }
+
+  cat("• La distribución", distribucion, "\n")
+  cat(
+    "• Intervalo modal:",
     res_tiempo$tabla_frecuencias$Intervalo[which.max(res_tiempo$tabla_frecuencias$Frec_Abs)],
-    "\n")
+    "\n"
+  )
 
-cat("\n\nDIAGRAMA CIRCULAR:\n")
-cat("• Satisfacción positiva:", round(sum(
-  res_satisfaccion$tabla_frecuencias$Frec_Rel[1:2]
-) * 100, 2), "%\n")
-cat("• Satisfacción negativa:", round(sum(
-  res_satisfaccion$tabla_frecuencias$Frec_Rel[3:4]
-) * 100, 2), "%\n")
+  cat("\n\nDIAGRAMA CIRCULAR:\n")
+  cat("• Satisfacción positiva:", round(sum(
+    res_satisfaccion$tabla_frecuencias$Frec_Rel[1:2]
+  ) * 100, 2), "%\n")
+  cat("• Satisfacción negativa:", round(sum(
+    res_satisfaccion$tabla_frecuencias$Frec_Rel[3:4]
+  ) * 100, 2), "%\n")
 
+  ggsave(
+    "output/histograma_tiempo_estudio_semanal.jpg",
+    histograma,
+    width = 9,
+    height = 5,
+    dpi = 300
+  )
+  ggsave(
+    "output/diagrama_circular_satisfaccion_con_carrera.jpg",
+    diagrama_circular,
+    width = 9,
+    height = 5,
+    dpi = 300
+  )
+  cat("\n-> Gráficos exportados con éxito a /output.\n")
+}
 
 # ------------------------------------------------------------------------------
 # 5) MODELO BINOMIAL (Consigna 5)
@@ -1622,19 +1680,19 @@ cat("• Satisfacción negativa:", round(sum(
 
 mostrar_consigna_5 <- function() {
   cat("\014") # Limpiar pantalla
-  
+
   # Extraemos las probabilidades calculadas
-  p_muy_satisfecho   <- res_satisfaccion$tabla_frecuencias$Frec_Rel[1]
-  p_satisfecho       <- res_satisfaccion$tabla_frecuencias$Frec_Rel[2]
-  p_insatisfecho     <- res_satisfaccion$tabla_frecuencias$Frec_Rel[3]
+  p_muy_satisfecho <- res_satisfaccion$tabla_frecuencias$Frec_Rel[1]
+  p_satisfecho <- res_satisfaccion$tabla_frecuencias$Frec_Rel[2]
+  p_insatisfecho <- res_satisfaccion$tabla_frecuencias$Frec_Rel[3]
   p_muy_insatisfecho <- res_satisfaccion$tabla_frecuencias$Frec_Rel[4]
-  
+
   # Muestra
   n_muestra <- 16
-  
+
   # Leyenda eje x
   x_label_binom <- "Número de Alumnos en la Muestra"
-  
+
   # ───────────────────────────────────
   # 5a) Más de 9 muy satisfechos: P(X > 9)
   prob_5a <- calculate_binomial_probability(
@@ -1643,7 +1701,7 @@ mostrar_consigna_5 <- function() {
     prob = p_muy_satisfecho,
     op = "gt"
   )
-  
+
   g_binom_5a <- render_binomial_dist(
     size = n_muestra,
     prob = p_muy_satisfecho,
@@ -1660,11 +1718,11 @@ mostrar_consigna_5 <- function() {
     dpi = 300
   )
   print(g_binom_5a)
-  
+
   # ───────────────────────────────────
   # 5b) Entre 4 y 8 satisfechos: P(4 <= X <= 8)
   prob_5b <- calculate_binomial_probability(x = 4:8, size = n_muestra, prob = p_satisfecho)
-  
+
   g_binom_5b <- render_binomial_dist(
     size = n_muestra,
     prob = p_satisfecho,
@@ -1680,7 +1738,7 @@ mostrar_consigna_5 <- function() {
     dpi = 300
   )
   print(g_binom_5b)
-  
+
   # ───────────────────────────────────
   # 5c) Menos de 5 insatisfechos: P(X < 5)
   prob_5c <- calculate_binomial_probability(
@@ -1689,7 +1747,7 @@ mostrar_consigna_5 <- function() {
     prob = p_insatisfecho,
     op = "lt"
   )
-  
+
   g_binom_5c <- render_binomial_dist(
     size = n_muestra,
     prob = p_insatisfecho,
@@ -1706,11 +1764,11 @@ mostrar_consigna_5 <- function() {
     dpi = 300
   )
   print(g_binom_5c)
-  
+
   # ───────────────────────────────────
   # 5d) Exactamente 10 muy insatisfechos: P(X = 10)
   prob_5d <- calculate_binomial_probability(x = 10, size = n_muestra, prob = p_muy_insatisfecho)
-  
+
   g_binom_5d <- render_binomial_dist(
     size = n_muestra,
     prob = p_muy_insatisfecho,
@@ -1726,72 +1784,77 @@ mostrar_consigna_5 <- function() {
     dpi = 300
   )
   print(g_binom_5d)
-  
+
   # Impresión limpia en consola sin eco de sentencias
-  withAutoprint({
-    message("\nANÁLISIS DEL MODELO BINOMIAL\n")
-    cat(
-      "========================================================================\n"
-    )
-    cat(" INFORME TÉCNICO: Nivel de Satisfacción de los Estudiantes ( n =",
+  withAutoprint(
+    {
+      message("\nANÁLISIS DEL MODELO BINOMIAL\n")
+      cat(
+        "========================================================================\n"
+      )
+      cat(
+        " INFORME TÉCNICO: Nivel de Satisfacción de los Estudiantes ( n =",
         n_muestra,
-        ")\n")
-    cat(
-      "========================================================================\n"
-    )
-    cat(sprintf(" • Parámetros Base de la Población:\n"))
-    cat(
-      sprintf(
-        "   P(Muy Satisfecho):   %.4f  |  P(Satisfecho):       %.4f\n",
-        p_muy_satisfecho,
-        p_satisfecho
+        ")\n"
       )
-    )
-    cat(
-      sprintf(
-        "   P(Insatisfecho):     %.4f  |  P(Muy Insatisfecho): %.4f\n\n",
-        p_insatisfecho,
-        p_muy_insatisfecho
+      cat(
+        "========================================================================\n"
       )
-    )
-    cat(" • Resultados del Análisis de Probabilidad:\n")
-    cat(sprintf(
-      "   [a] P(X > 9)  Muy Satisfechos:   =>  %s (%.2f%%)\n",
-      format(prob_5a, nsmall = 4),
-      prob_5a * 100
-    ))
-    cat(sprintf(
-      "   [b] P(4<=X<=8) Satisfechos:      =>  %s (%.2f%%)\n",
-      format(prob_5b, nsmall = 4),
-      prob_5b * 100
-    ))
-    cat(sprintf(
-      "   [c] P(X < 5)  Insatisfechos:     =>  %s (%.2f%%)\n",
-      format(prob_5c, nsmall = 4),
-      prob_5c * 100
-    ))
-    cat(sprintf(
-      "   [d] P(X = 10) Muy Insatisfechos: =>  %s (%.2f%%)\n",
-      format(prob_5d, nsmall = 4),
-      prob_5d * 100
-    ))
-    cat(
-      "────────────────────────────────────────────────────────────────────────\n"
-    )
-    cat(" CONCLUSIÓN BINOMIAL:\n")
-    cat(" El rango de 'Satisfechos' entre 4 y 8 alumnos presenta la mayor concentración\n")
-    cat(
-      sprintf(
-        " de probabilidad (%.2f%%), alineándose con la esperanza matemática del modelo (μ = %.2f).\n",
-        prob_5b * 100,
-        n_muestra * p_satisfecho
+      cat(sprintf(" • Parámetros Base de la Población:\n"))
+      cat(
+        sprintf(
+          "     P(Muy Satisfecho):   %.4f  |  P(Satisfecho):       %.4f\n",
+          p_muy_satisfecho,
+          p_satisfecho
+        )
       )
-    )
-    cat(" • Gráficos exportados con éxito en la carpeta /output.\n")
-    cat(
-      "========================================================================\n\n"
-    )
-  }, echo = FALSE)
+      cat(
+        sprintf(
+          "     P(Insatisfecho):     %.4f  |  P(Muy Insatisfecho): %.4f\n\n",
+          p_insatisfecho,
+          p_muy_insatisfecho
+        )
+      )
+      cat(" • Resultados del Análisis de Probabilidad:\n")
+      cat(sprintf(
+        "     [a] P(X > 9)  Muy Satisfechos:   =>  %s (%.2f%%)\n",
+        format(prob_5a, nsmall = 4),
+        prob_5a * 100
+      ))
+      cat(sprintf(
+        "     [b] P(4<=X<=8) Satisfechos:      =>  %s (%.2f%%)\n",
+        format(prob_5b, nsmall = 4),
+        prob_5b * 100
+      ))
+      cat(sprintf(
+        "     [c] P(X < 5)  Insatisfechos:     =>  %s (%.2f%%)\n",
+        format(prob_5c, nsmall = 4),
+        prob_5c * 100
+      ))
+      cat(sprintf(
+        "     [d] P(X = 10) Muy Insatisfechos: =>  %s (%.2f%%)\n",
+        format(prob_5d, nsmall = 4),
+        prob_5d * 100
+      ))
+      cat(
+        "────────────────────────────────────────────────────────────────────────\n"
+      )
+      cat(" CONCLUSIÓN BINOMIAL:\n")
+      cat(" El rango de 'Satisfechos' entre 4 y 8 alumnos presenta la mayor concentración\n")
+      cat(
+        sprintf(
+          " de probabilidad (%.2f%%), alineándose con la esperanza matemática del modelo (μ = %.2f).\n",
+          prob_5b * 100,
+          n_muestra * p_satisfecho
+        )
+      )
+      cat("\n-> Gráficos exportados con éxito en la carpeta /output.\n")
+      cat(
+        "========================================================================\n\n"
+      )
+    },
+    echo = FALSE
+  )
 }
 
 
@@ -1801,22 +1864,24 @@ mostrar_consigna_5 <- function() {
 
 mostrar_consigna_6 <- function() {
   cat("\014") # Limpiar pantalla
-  
+
   # Parámetro
   base <- 15 / 30
   lambda_20min <- base * 20
   lambda_40min <- base * 40
   lambda_30min <- base * 30
-  
+
   x_label_pois <- "Cantidad de Consultas"
-  
-  
+
+
   # ───────────────────────────────────
   # 6a) Por lo menos 6 consultas en 20 minutos: P(X >= 6)
-  prob_6a <- calculate_poisson_probability(x = 6,
-                                           lambda = base * 20,
-                                           op = "gte")
-  
+  prob_6a <- calculate_poisson_probability(
+    x = 6,
+    lambda = base * 20,
+    op = "gte"
+  )
+
   g_pois_6a <- render_poisson_dist(
     lambda = lambda_20min,
     critical_x = 6,
@@ -1832,13 +1897,15 @@ mostrar_consigna_6 <- function() {
     dpi = 300
   )
   print(g_pois_6a)
-  
+
   # ───────────────────────────────────
   # 6b) A lo sumo 12 consultas en 40 minutos: P(X <= 12)
-  prob_6b <- calculate_poisson_probability(x = 12,
-                                           lambda = base * 40,
-                                           op = "lte")
-  
+  prob_6b <- calculate_poisson_probability(
+    x = 12,
+    lambda = base * 40,
+    op = "lte"
+  )
+
   g_pois_6b <- render_poisson_dist(
     lambda = lambda_40min,
     critical_x = 12,
@@ -1854,11 +1921,11 @@ mostrar_consigna_6 <- function() {
     dpi = 300
   )
   print(g_pois_6b)
-  
+
   # ───────────────────────────────────
   # 6c) Más de 7 y menos de 10 consultas en 30 minutos: P(7 < X < 10)
   prob_6c <- calculate_poisson_probability(x = 8:9, lambda = base * 30)
-  
+
   g_pois_6c <- render_poisson_dist(
     lambda = lambda_30min,
     critical_x = 8:9,
@@ -1873,58 +1940,61 @@ mostrar_consigna_6 <- function() {
     dpi = 300
   )
   print(g_pois_6c)
-  
-  withAutoprint({
-    message("\nANÁLISIS DEL MODELO DE POISSON\n")
-    cat(
-      "========================================================================\n"
-    )
-    cat(" INFORME TÉCNICO: Análisis de Consultas Recibidas por Docentes  \n")
-    cat(
-      "========================================================================\n"
-    )
-    cat(" • Evaluaciones de Procesos de Tiempo de Tutoría:\n")
-    cat(
-      sprintf(
-        "   [a] Por lo menos 6 consultas en 20 min  (λ = %s) =>  %s (%.2f%%)\n",
-        lambda_20min,
-        format(prob_6a, nsmall = 4),
-        prob_6a * 100
+
+  withAutoprint(
+    {
+      message("\nANÁLISIS DEL MODELO DE POISSON\n")
+      cat(
+        "========================================================================\n"
       )
-    )
-    cat(
-      sprintf(
-        "   [b] A lo sumo 12 consultas en 40 min    (λ = %s) =>  %s (%.2f%%)\n",
-        lambda_40min,
-        format(prob_6b, nsmall = 4),
-        prob_6b * 100
+      cat(" INFORME TÉCNICO: Análisis de Consultas Recibidas por Docentes  \n")
+      cat(
+        "========================================================================\n"
       )
-    )
-    cat(
-      sprintf(
-        "   [c] Entre 8 y 9 consultas en 30 min     (λ = %s) =>  %s (%.2f%%)\n",
-        lambda_30min,
-        format(prob_6c, nsmall = 4),
-        prob_6c * 100
+      cat(" • Evaluaciones de Procesos de Tiempo de Tutoría:\n")
+      cat(
+        sprintf(
+          "     [a] Por lo menos 6 consultas en 20 min  (λ = %s) =>  %s (%.2f%%)\n",
+          lambda_20min,
+          format(prob_6a, nsmall = 4),
+          prob_6a * 100
+        )
       )
-    )
-    cat(
-      "────────────────────────────────────────────────────────────────────────\n"
-    )
-    cat(" CONCLUSIÓN POISSON:\n")
-    cat(" Es altamente crítico notar que la probabilidad de recibir a lo sumo 12\n")
-    cat(
-      sprintf(
-        " consultas en 40 minutos es extremadamente baja (%.2f%%). Esto indica que\n",
-        prob_6b * 100
+      cat(
+        sprintf(
+          "     [b] A lo sumo 12 consultas en 40 min    (λ = %s) =>  %s (%.2f%%)\n",
+          lambda_40min,
+          format(prob_6b, nsmall = 4),
+          prob_6b * 100
+        )
       )
-    )
-    cat(" la demanda en hora pico saturará casi con seguridad la capacidad docente.\n")
-    cat(" • Gráficos de distribución de eventos guardados en /output.\n")
-    cat(
-      "========================================================================\n\n"
-    )
-  }, echo = FALSE)
+      cat(
+        sprintf(
+          "     [c] Entre 8 y 9 consultas en 30 min     (λ = %s) =>  %s (%.2f%%)\n",
+          lambda_30min,
+          format(prob_6c, nsmall = 4),
+          prob_6c * 100
+        )
+      )
+      cat(
+        "────────────────────────────────────────────────────────────────────────\n"
+      )
+      cat(" CONCLUSIÓN POISSON:\n")
+      cat(" Es altamente crítico notar que la probabilidad de recibir a lo sumo 12\n")
+      cat(
+        sprintf(
+          " consultas en 40 minutos es extremadamente baja (%.2f%%). Esto indica que\n",
+          prob_6b * 100
+        )
+      )
+      cat(" la demanda en hora pico saturará casi con seguridad la capacidad docente.\n")
+      cat("\n-> Gráficos de distribución de eventos guardados en /output.\n")
+      cat(
+        "========================================================================\n\n"
+      )
+    },
+    echo = FALSE
+  )
 }
 
 
@@ -1934,14 +2004,14 @@ mostrar_consigna_6 <- function() {
 
 mostrar_consigna_7 <- function() {
   cat("\014") # Limpiar pantalla
-  
+
   # Parámetros
-  estat_data   <- datos$ESTATURA_CM.
-  estat_media  <- mean(estat_data, na.rm = TRUE)
+  estat_data <- datos$ESTATURA_CM.
+  estat_media <- mean(estat_data, na.rm = TRUE)
   estat_desvio <- sd(estat_data, na.rm = TRUE)
-  
+
   x_label_norm <- "Estatura (cm)"
-  
+
   # ───────────────────────────────────
   # 7a) Mayor o igual que 179 cm: P(X >= 179)
   prob_7a <- calculate_normal_probability(
@@ -1950,7 +2020,7 @@ mostrar_consigna_7 <- function() {
     critical_x = 179,
     op = "gte"
   )
-  
+
   g_norm_7a <- render_normal_dist(
     mean = estat_media,
     sd = estat_desvio,
@@ -1967,7 +2037,7 @@ mostrar_consigna_7 <- function() {
     dpi = 300
   )
   print(g_norm_7a)
-  
+
   # ───────────────────────────────────
   # 7b) Comprendida entre 147 y 172 cm: P(147 <= X <= 172)
   prob_7b <- calculate_normal_probability(
@@ -1976,7 +2046,7 @@ mostrar_consigna_7 <- function() {
     critical_x = c(147, 172),
     op = "bet"
   )
-  
+
   g_norm_7b <- render_normal_dist(
     mean = estat_media,
     sd = estat_desvio,
@@ -1993,11 +2063,11 @@ mostrar_consigna_7 <- function() {
     dpi = 300
   )
   print(g_norm_7b)
-  
+
   # ───────────────────────────────────
   # 7c) Hallar el valor que excede al 97.5% de la población (Cuantil inverso)
   valor_7c <- calculate_normal_quantile(mean = estat_media, sd = estat_desvio, prob = 0.975)
-  
+
   g_norm_7c <- render_normal_dist(
     mean = estat_media,
     sd = estat_desvio,
@@ -2013,159 +2083,141 @@ mostrar_consigna_7 <- function() {
     dpi = 300
   )
   print(g_norm_7c)
-  
-  withAutoprint({
-    message("\nANÁLISIS DEL MODELO NORMAL\n")
-    cat(
-      "========================================================================\n"
-    )
-    cat(" INFORME TÉCNICO: Estatura de Estudiantes y Parámetros Muestrales\n")
-    cat(
-      "========================================================================\n"
-    )
-    cat(sprintf(" • Parámetros Empíricos Calculados de la Muestra Actual:\n"))
-    cat(sprintf("   - Media Muestral (μ):       %.2f cm\n", estat_media))
-    cat(sprintf("   - Desviación Estándar (σ):  %.2f cm\n\n", estat_desvio))
-    cat(" • Análisis Probabilístico Inferencial:\n")
-    cat(sprintf(
-      "   [a] P(X >= 179 cm)    Estatura Alta        =>  %s (%.2f%%)\n",
-      format(prob_7a, nsmall = 4),
-      prob_7a * 100
-    ))
-    cat(
-      sprintf(
-        "   [b] P(147<=X<=172)    Estatura Promedio    =>  %s (%.2f%%)\n",
-        format(prob_7b, nsmall = 4),
-        prob_7b * 100
+
+  withAutoprint(
+    {
+      message("\nANÁLISIS DEL MODELO NORMAL\n")
+      cat(
+        "========================================================================\n"
       )
-    )
-    cat(sprintf(
-      "   [c] Percentil 97.5%%  Umbral de Excedencia =>  %.2f cm\n",
-      valor_7c
-    ))
-    cat(
-      "────────────────────────────────────────────────────────────────────────\n"
-    )
-    cat(" CONCLUSIÓN NORMAL (Regla Empírica):\n")
-    cat(
-      sprintf(
-        " El %.2f%% de la población se concentra en el rango de estaturas medias.\n",
-        prob_7b * 100
+      cat(" INFORME TÉCNICO: Estatura de Estudiantes y Parámetros Muestrales\n")
+      cat(
+        "========================================================================\n"
       )
-    )
-    cat(
-      sprintf(
-        " Solo un 2.5%% de los alumnos excede la estatura límite de %.2f cm.\n",
+      cat(sprintf(" • Parámetros Empíricos Calculados de la Muestra Actual:\n"))
+      cat(sprintf("     Media Muestral (μ):       %.2f cm\n", estat_media))
+      cat(sprintf("     Desviación Estándar (σ):  %.2f cm\n\n", estat_desvio))
+      cat(" • Análisis Probabilístico Inferencial:\n")
+      cat(sprintf(
+        "     [a] P(X >= 179 cm)    Estatura Alta        =>  %s (%.2f%%)\n",
+        format(prob_7a, nsmall = 4),
+        prob_7a * 100
+      ))
+      cat(
+        sprintf(
+          "     [b] P(147<=X<=172)    Estatura Promedio    =>  %s (%.2f%%)\n",
+          format(prob_7b, nsmall = 4),
+          prob_7b * 100
+        )
+      )
+      cat(sprintf(
+        "     [c] Percentil 97.5%%  Umbral de Excedencia =>  %.2f cm\n",
         valor_7c
+      ))
+      cat(
+        "────────────────────────────────────────────────────────────────────────\n"
       )
-    )
-    cat(" • Curva de Gauss y áreas de probabilidad exportadas a /output.\n")
-    cat(
-      "========================================================================\n"
-    )
-  }, echo = FALSE)
-}
-
-
-# ------------------------------------------------------------------------------
-# GRAFICAR Y GUARDAR RESULTADOS
-# ------------------------------------------------------------------------------
-graficar <- F
-guardar <- F
-
-if (graficar) {
-  print(histograma)
-  print(diagrama)
-}
-
-if (guardar) {
-  # Guardar gráficos
-  ggsave(
-    "output/histograma_tiempo_estudio.jpg",
-    histograma,
-    width = 9,
-    height = 5,
-    dpi = 300
+      cat(" CONCLUSIÓN NORMAL (Regla Empírica):\n")
+      cat(
+        sprintf(
+          " El %.2f%% de la población se concentra en el rango de estaturas medias.\n",
+          prob_7b * 100
+        )
+      )
+      cat(
+        sprintf(
+          " Solo un 2.5%% de los alumnos excede la estatura límite de %.2f cm.\n",
+          valor_7c
+        )
+      )
+      cat("\n-> Curva de Gauss y áreas de probabilidad exportadas a /output.\n")
+      cat(
+        "========================================================================\n"
+      )
+    },
+    echo = FALSE
   )
-  ggsave(
-    "output/diagrama_satisfaccion.jpg",
-    diagrama,
-    width = 9,
-    height = 5,
-    dpi = 300
-  )
-  
-  # Guardar resultados en CSV
-  write.csv(
-    res_tiempo$tabla_frecuencias,
-    "output/tabla_frecuencias_tiempo_estudio.csv",
-    row.names = F
-  )
-  write.csv(
-    res_satisfaccion$tabla_frecuencias,
-    "output/tabla_frecuencias_satisfaccion.csv",
-    row.names = F
-  )
-  
-  # Mostrar archivos guardados
-  cat("\n", "=", "ARCHIVOS GUARDADOS", "=", "\n")
-  cat("• histograma_tiempo_estudio.jpg\n")
-  cat("• diagrama_satisfaccion.jpg\n")
-  cat("• tabla_frecuencias_tiempo_estudio.csv\n")
-  cat("• tabla_frecuencias_satisfaccion.csv\n")
 }
 
 
 # ==============================================================================
 # MENÚ INTERACTIVO
 # ==============================================================================
-# LOOP PRINCIPAL DEL MENÚ INTERACTIVO
 ejecutar_menu <- TRUE
 
 while (ejecutar_menu) {
   cat("\014") # Limpiar consola al regresar al menú principal
   cat("========================================================================\n")
-  cat("  UTN - TPI PROBABILIDAD Y ESTADÍSTICA (TERCERA ENTREGA)            \n")
-  cat("  Panel de Control de Modelos Probabilísticos                          \n")
+  cat("  UTN - TPI PROBABILIDAD Y ESTADÍSTICA - Panel de Control\n")
   cat("========================================================================\n")
-  cat("  [5] Mostrar Consigna 5: Distribución Binomial (Satisfacción)\n")
-  cat("  [6] Mostrar Consigna 6: Distribución de Poisson (Consultas)\n")
-  cat("  [7] Mostrar Consigna 7: Distribución Normal (Estaturas)\n")
+  cat("  [1] Mostrar Consigna 2a: Análisis de Variable Continua (Tiempo de Estudio)\n")
+  cat("  [2] Mostrar Consigna 2b: Análisis de Variable Ordinal (Satisfacción con la Carrera)\n")
+  cat("  [3] Mostrar Consigna 3:  Medidas Descriptivas de las Variables\n")
+  cat("  [4] Mostrar Consigna 4:  Representación Gráfica de las Variables\n")
+  cat("  [5] Mostrar Consigna 5:  Distribución Binomial (Satisfacción con la Carrera)\n")
+  cat("  [6] Mostrar Consigna 6:  Distribución de Poisson (Consultas Recibidas)\n")
+  cat("  [7] Mostrar Consigna 7:  Distribución Normal (Estaturas de Estudiantes)\n")
   cat("  [0] Salir del Programa\n")
   cat("========================================================================\n")
-  
+
   # Captura la entrada del usuario desde la consola
   opcion <- readline(prompt = " Seleccione una opción para visualizar el reporte -> ")
-  
-  # Evaluación del flujo con estructura condicional
-  if (opcion == "5") {
-    graphics.off()
-    mostrar_consigna_5()
-    readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
-  } else if (opcion == "6") {
-    graphics.off()
-    mostrar_consigna_6()
-    readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
-  } else if (opcion == "7") {
-    graphics.off()
-    mostrar_consigna_7()
-    readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
-  } else if (opcion == "0") {
-    ejecutar_menu <- FALSE
-    cat("\014")
-    cat(
-      "========================================================================\n"
-    )
-    cat(" ¡Programa finalizado con éxito!\n")
-    cat(
-      "========================================================================\n\n"
-    )
-    break
-  } else {
-    cat("\n Opción inválida. Intente nuevamente.\n")
-    Sys.sleep(1.5) # Pausa dramática de 1.5 segundos antes de refrescar el menú
-  }
+
+  # Evaluación del flujo con estructura switch
+  switch(opcion,
+    "1" = {
+      graphics.off()
+      mostrar_consigna_2a()
+      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+    },
+    "2" = {
+      graphics.off()
+      mostrar_consigna_2b()
+      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+    },
+    "3" = {
+      graphics.off()
+      mostrar_consigna_3()
+      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+    },
+    "4" = {
+      graphics.off()
+      mostrar_consigna_4()
+      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+    },
+    "5" = {
+      graphics.off()
+      mostrar_consigna_5()
+      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+    },
+    "6" = {
+      graphics.off()
+      mostrar_consigna_6()
+      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+    },
+    "7" = {
+      graphics.off()
+      mostrar_consigna_7()
+      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+    },
+    "0" = {
+      ejecutar_menu <- FALSE
+      cat("\014")
+      cat(
+        "========================================================================\n"
+      )
+      cat(" ¡Programa finalizado con éxito!\n")
+      cat(
+        "========================================================================\n\n"
+      )
+    },
+    {
+      cat("\n Opción inválida. Intente nuevamente.\n")
+      Sys.sleep(1.5) # Pausa antes de refrescar el menú
+    }
+  )
 }
+
 
 # ==============================================================================
 # FIN DEL SCRIPT
