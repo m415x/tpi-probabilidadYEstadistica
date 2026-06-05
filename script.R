@@ -542,7 +542,11 @@ analyze_ordinal_variable <- function(vector,
     tabla_frecuencias = tabla_frec,
     medidas_descriptivas = medidas_df,
     niveles = levels(vector),
-    n = length(vector)
+    n = length(vector),
+    p_muy_insatisfecho = tabla_frec$Frec_Rel[1],
+    p_satisfecho = tabla_frec$Frec_Rel[2],
+    p_insatisfecho = tabla_frec$Frec_Rel[3],
+    p_muy_insatisfecho = tabla_frec$Frec_Rel[4]
   )
 
   return(resultados)
@@ -608,11 +612,14 @@ calculate_poisson_probability <- function(x, lambda, op = "eq", rnd = 4) {
 # ──────────────────────────────────────────────────────────────────────────────
 # Calcular probabilidades Normales con redondeo simétrico
 # ──────────────────────────────────────────────────────────────────────────────
-calculate_normal_probability <- function(mean,
-                                         sd,
+calculate_normal_probability <- function(res,
                                          critical_x,
                                          op = "lte",
                                          rnd = 4) {
+  # Parámetros teóricos centrales
+  mean <- res$Media
+  sd <- res$Desvio_Estandar
+
   probabilidad <- switch(op,
     # X <= x (menor o igual)
     "lte" = pnorm(critical_x[1], mean = mean, sd = sd),
@@ -634,11 +641,14 @@ calculate_normal_probability <- function(mean,
 # ──────────────────────────────────────────────────────────────────────────────
 # Calcular cuantiles inversos de la Distribución Normal
 # ──────────────────────────────────────────────────────────────────────────────
-calculate_normal_quantile <- function(mean,
-                                      sd,
+calculate_normal_quantile <- function(res,
                                       prob,
                                       op = "lte",
                                       rnd = 4) {
+  # Parámetros teóricos centrales
+  mean <- res$Media
+  sd <- res$Desvio_Estandar
+
   # qnorm() calcula el valor de la variable dado un nivel de probabilidad acumulada
   valor_x <- switch(op,
     "lte" = qnorm(p = prob, mean = mean, sd = sd),
@@ -651,6 +661,42 @@ calculate_normal_quantile <- function(mean,
   )
 
   return(round(valor_x, rnd))
+}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Simulación de Muestreo Aleatorio Simple (MAS)
+# ──────────────────────────────────────────────────────────────────────────────
+calculate_sampling_distribution <- function(population_vector, sample_count, sample_size, seed, rnd = 4) {
+  # Asegurar la repetibilidad del experimento aleatorio
+  set.seed(seed)
+
+  # Limpiar el vector de la población de valores nulos para evitar errores finitos
+  poblacion_limpia <- na.omit(population_vector)
+  media_pob <- mean(poblacion_limpia)
+
+  # Contenedor vectorizado para almacenar las medias aritméticas
+  medias <- numeric(sample_count)
+
+  # Bucle automatizado de extracción sin reposición (M.A.S.)
+  for (i in 1:sample_count) {
+    muestra_i <- sample(poblacion_limpia, size = sample_size, replace = F)
+    medias[i] <- mean(muestra_i)
+  }
+
+  # Consolidar el DataFrame de control analítico
+  df_resumen <- data.frame(
+    Muestra = paste("Muestra", 1:sample_count),
+    Media_Muestral = round(medias, rnd),
+    Diferencia_Respecto_Poblacion = round(round(medias, rnd) - media_pob, rnd)
+  )
+
+  # Retornamos una lista con los datos listos para ser consumidos por el reporte
+  return(list(
+    tabla = df_resumen,
+    media_poblacional = media_pob,
+    promedio_de_medias = mean(medias)
+  ))
 }
 
 
@@ -1231,8 +1277,7 @@ render_poisson_dist <- function(lambda,
 # ──────────────────────────────────────────────────────────────────────────────
 # Graficar la Distribución Normal Teórica con la Regla Empírica (68-95-99.7)
 # ──────────────────────────────────────────────────────────────────────────────
-render_normal_dist <- function(mean,
-                               sd,
+render_normal_dist <- function(res,
                                critical_x = NULL,
                                op = "lte",
                                prob = NULL,
@@ -1240,6 +1285,10 @@ render_normal_dist <- function(mean,
                                x_label = "Valor de la Variable (X)",
                                fill_color = "lightblue",
                                rnd = 4) {
+  # Parámetros teóricos centrales
+  mean <- res$Media
+  sd <- res$Desvio_Estandar
+
   # 1. Generar secuencia de datos que cubra prácticamente toda la campana (μ ± 4σ)
   x_seq <- sd_vline(mean, sd, c(-4, 4))
 
@@ -1279,8 +1328,7 @@ render_normal_dist <- function(mean,
   # Caso B: Sombreado basado en cuantiles probabilísticos
   if (!is.null(prob)) {
     xi <- calculate_normal_quantile(
-      mean = mean,
-      sd = sd,
+      res = res,
       prob = prob,
       op = op
     )
@@ -1436,9 +1484,104 @@ render_normal_dist <- function(mean,
   return(p)
 }
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Graficar comparativa de Medias Muestrales vs Parámetro Poblacional
+# ──────────────────────────────────────────────────────────────────────────────
+render_sampling_distribution <- function(res, var_name = "Variable Continua", unit = "u", rnd = 4) {
+  # Extraemos los datos del pipeline precalculado
+  df_plot <- res$tabla
+  mu_pob <- res$media_poblacional
+  mu_muestras <- res$promedio_de_medias
+
+  # Creamos el gráfico con ggplot2
+  p <- ggplot(df_plot, aes(x = Muestra, y = Media_Muestral)) +
+
+    # 1. Línea de referencia horizontal: El Parámetro Real Poblacional (μ)
+    geom_hline(
+      aes(yintercept = mu_pob),
+      color = "red",
+      linetype = "solid",
+      linewidth = 1
+    ) +
+    # Ubicación discreta en la primera columna
+    annotate("label",
+      x = "Muestra 1",
+      y = mu_pob,
+      label = paste0("μ Poblacional: ", round(mu_pob, rnd), " ", unit),
+      color = "red",
+      fontface = "bold",
+      fill = "white",
+      size = 3.5,
+      vjust = -0.5,
+      hjust = -0.1
+    ) +
+
+    # 2. Línea de referencia horizontal: El Promedio de las medias (T.L.C.)
+    geom_hline(
+      aes(yintercept = mu_muestras),
+      color = "blue",
+      linetype = "dashed",
+      linewidth = 0.8
+    ) +
+    # Ubicación discreta en la penúltima columna
+    annotate("label",
+      x = "Muestra 5",
+      y = mu_muestras,
+      label = paste0("Promedio Medias: ", round(mu_muestras, rnd), " ", unit),
+      color = "blue",
+      fontface = "bold",
+      fill = "white",
+      size = 3.5,
+      vjust = 1.5,
+      hjust = -0.1
+    ) +
+
+    # 3. Líneas verticales que muestran el error de cada muestra
+    geom_linerange(
+      aes(ymin = mu_pob, ymax = Media_Muestral, color = Diferencia_Respecto_Poblacion > 0),
+      linewidth = 1,
+      alpha = 0.7
+    ) +
+
+    # 4. Los puntos que representan la media de cada muestra
+    geom_point(
+      aes(color = Diferencia_Respecto_Poblacion > 0),
+      size = 4
+    ) +
+
+    # Mapeo manual de colores: Azul (sobreestimó) / Naranja (subestimó)
+    scale_color_manual(values = c("FALSE" = "darkorange", "TRUE" = "steelblue")) +
+
+    # Etiqueta con el valor numérico exacto arriba de cada punto
+    geom_text(
+      aes(label = paste0(Media_Muestral, " ", unit)),
+      vjust = -0.7,
+      fontface = "bold",
+      size = 3
+    ) +
+
+    # Estética y títulos dinámicos
+    labs(
+      title = paste("Teorema del Límite Central:", var_name),
+      subtitle = paste0("Simulación de ", nrow(df_plot), " muestras aleatorias independientes (n = 20)"),
+      x = "Muestras Extraídas (Sin Reposición)",
+      y = paste0("Media Muestral (", unit, ")")
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      plot.subtitle = element_text(hjust = 0.5, face = "italic", color = "gray40"),
+      axis.title = element_text(face = "bold"),
+      legend.position = "none",
+      panel.grid.minor = element_blank()
+    )
+
+  return(p)
+}
+
 
 # ==============================================================================
-# APLICACIÓN AL CASO DE ESTUDIO
+# INICIALIZACIÓN DE DATOS Y PARÁMETROS GLOBALES
 # ==============================================================================
 
 # 1. Cargar el archivo una sola vez y guardar la ruta
@@ -1448,46 +1591,70 @@ ruta_archivo <- "data/TUPAD-2026-EST-TPI-planilla3.xlsx"
 # 2. Leer la primera hoja para los datos generales
 datos <- read_excel(ruta_archivo)
 
+# ───────────────────────────────────
+# PARÁMETROS PARA TIEMPO DE ESTUDIO SEMANAL
+tiempo_estudio <- datos$`TIEMPO_SEMANAL_ESTUDIO_HS`
+res_tiempo <- analyze_continuous_variable(tiempo_estudio, "Tiempo de estudio semanal (horas)")
+
+# ───────────────────────────────────
+# PARÁMETROS PARA SATISFACCIÓN CON LA CARRERA
+satisfaccion <- datos$`SATISF_CON_CARRERA`
+
+# Crear un dataframe con niveles de satisfacción y extraer la segunda columna para forman el vector
+df_nivel <- read_excel(ruta_archivo, sheet = 2, skip = 1, col_names = F)
+satisfaccion_niveles <- df_nivel$...1
+satisfaccion_etiquetas <- df_nivel$...2
+
+res_satisfaccion <- analyze_ordinal_variable(
+  satisfaccion,
+  "Satisfacción con la carrera",
+  levels = satisfaccion_niveles,
+  labels = satisfaccion_etiquetas
+)
+
+# ───────────────────────────────────
+# PARÁMETROS PARA ESTATURA EN CM
+estatura_cm <- datos$`ESTATURA_CM.`
+res_estatura <- list(Media = mean(estatura_cm), Desvio_Estandar = sd(estatura_cm))
+
+# ───────────────────────────────────
+# PARÁMETROS PARA PESO EN KG
+peso_kg <- datos$`PESO_KG.`
+
 
 # ------------------------------------------------------------------------------
 # 2a) ANÁLISIS DE TIEMPO DE ESTUDIO SEMANAL (Variable continua)
 # ------------------------------------------------------------------------------
 
-# Variable continua
-tiempo_estudio <- datos$`TIEMPO_SEMANAL_ESTUDIO_HS`
-
-# Llamado a la función analyze_continuous_variable()
-res_tiempo <- analyze_continuous_variable(tiempo_estudio, "Tiempo de estudio semanal (horas)")
-
-mostrar_consigna_2a <- function() {
+mostrar_consigna_2a <- function(res) {
   cat("\014") # Limpiar pantalla
 
   cat("\nTabla de frecuencias agrupadas:\n")
-  print(res_tiempo$tabla_frec, row.names = F)
-  # View(res_tiempo$tabla_frec, title = "Tabla Frec. - Tiempo")
+  print(res$tabla_frec, row.names = F)
+  # View(res$tabla_frec, title = "Tabla Frec. - Tiempo")
 
   cat("\nMedidas de tendencia central:\n")
-  print(res_tiempo$medidas_centrales, row.names = F)
-  # View(res_tiempo$medidas_centrales, title = "Medidas Centrales - Tiempo")
+  print(res$medidas_centrales, row.names = F)
+  # View(res$medidas_centrales, title = "Medidas Centrales - Tiempo")
 
   cat("\nMedidas de dispersión:\n")
-  print(res_tiempo$medidas_dispersion, row.names = F)
-  # View(res_tiempo$medidas_dispersion, title = "Medidas Dispersión - Tiempo")
+  print(res$medidas_dispersion, row.names = F)
+  # View(res$medidas_dispersion, title = "Medidas Dispersión - Tiempo")
 
   cat("\nMedidas de posición - Cuartiles: \n")
-  print(res_tiempo$medidas_posicion$cuartiles, row.names = F)
-  # View(res_tiempo$medidas_posicion$cuartiles, title = "Medidas Posición - Tiempo")
+  print(res$medidas_posicion$cuartiles, row.names = F)
+  # View(res$medidas_posicion$cuartiles, title = "Medidas Posición - Tiempo")
 
   cat("\nMedidas de posición - Percentiles: \n")
-  print(res_tiempo$medidas_posicion$percentiles, row.names = F)
+  print(res$medidas_posicion$percentiles, row.names = F)
 
   cat("\nRESUMEN ESTADÍSTICO\n")
-  cat("• Total de observaciones:", res_tiempo$n, "\n")
-  cat("• Número de intervalos:", length(res_tiempo$cortes) - 1, "\n")
-  cat("• Amplitud de clase:", diff(res_tiempo$cortes)[1], "\n")
+  cat("• Total de observaciones:", res$n, "\n")
+  cat("• Número de intervalos:", length(res$cortes) - 1, "\n")
+  cat("• Amplitud de clase:", diff(res$cortes)[1], "\n")
 
   write.csv(
-    res_tiempo$tabla_frecuencias,
+    res$tabla_frecuencias,
     "output/tabla_frecuencias_tiempo_estudio.csv",
     row.names = F
   )
@@ -1499,38 +1666,19 @@ mostrar_consigna_2a <- function() {
 # 2b) ANÁLISIS DE SATISFACCIÓN (Variable ordinal)
 # ------------------------------------------------------------------------------
 
-# Crear vector con todos los valores
-satisfaccion <- datos$`SATISF_CON_CARRERA`
-
-# Crear un dataframe con niveles de satisfacción
-# y extraer la segunda columna para forman el vector
-df_nivel <- read_excel(ruta_archivo,
-  sheet = 2,
-  skip = 1,
-  col_names = F
-)
-satisfaccion_niveles <- df_nivel$...1
-satisfaccion_etiquetas <- df_nivel$...2
-
-res_satisfaccion <- analyze_ordinal_variable(satisfaccion,
-  "Satisfacción con la carrera",
-  levels = satisfaccion_niveles,
-  labels = satisfaccion_etiquetas
-)
-
-mostrar_consigna_2b <- function() {
+mostrar_consigna_2b <- function(res) {
   cat("\014") # Limpiar pantalla
 
   cat("\nTabla de frecuencias:\n")
-  print(res_satisfaccion$tabla_frecuencias, row.names = F)
-  # View(res_satisfaccion$tabla_frecuencias, title = "Tabla Frec. - Satisfacción")
+  print(res$tabla_frecuencias, row.names = F)
+  # View(res$tabla_frecuencias, title = "Tabla Frec. - Satisfacción")
 
   cat("\nMedidas descriptivas:\n")
-  print(res_satisfaccion$medidas_descriptivas, row.names = F)
-  # View(res_satisfaccion$medidas_descriptivas, title = "Medidas Descriptivas - Satisfacción")
+  print(res$medidas_descriptivas, row.names = F)
+  # View(res$medidas_descriptivas, title = "Medidas Descriptivas - Satisfacción")
 
   write.csv(
-    res_satisfaccion$tabla_frecuencias,
+    res$tabla_frecuencias,
     "output/tabla_frecuencias_satisfaccion.csv",
     row.names = F
   )
@@ -1542,7 +1690,7 @@ mostrar_consigna_2b <- function() {
 # 3) MEDIDAS DESCRIPTIVAS (Consigna 3)
 # ------------------------------------------------------------------------------
 
-mostrar_consigna_3 <- function() {
+mostrar_consigna_3 <- function(res_tiempo, res_satisfaccion) {
   cat("\014") # Limpiar pantalla
 
   # ───────────────────────────────────
@@ -1595,7 +1743,7 @@ mostrar_consigna_3 <- function() {
 # 4) REPRESENTACIÓN GRÁFICA (Consigna 4)
 # ------------------------------------------------------------------------------
 
-mostrar_consigna_4 <- function() {
+mostrar_consigna_4 <- function(tiempo_estudio, res_tiempo, res_satisfaccion) {
   cat("\014") # Limpiar pantalla
 
   # ───────────────────────────────────
@@ -1672,14 +1820,14 @@ mostrar_consigna_4 <- function() {
 # 5) MODELO BINOMIAL (Consigna 5)
 # ------------------------------------------------------------------------------
 
-mostrar_consigna_5 <- function() {
+mostrar_consigna_5 <- function(res) {
   cat("\014") # Limpiar pantalla
 
   # Extraemos las probabilidades calculadas
-  p_muy_satisfecho <- res_satisfaccion$tabla_frecuencias$Frec_Rel[1]
-  p_satisfecho <- res_satisfaccion$tabla_frecuencias$Frec_Rel[2]
-  p_insatisfecho <- res_satisfaccion$tabla_frecuencias$Frec_Rel[3]
-  p_muy_insatisfecho <- res_satisfaccion$tabla_frecuencias$Frec_Rel[4]
+  p_muy_satisfecho <- res$p_muy_insatisfecho
+  p_satisfecho <- res$p_satisfecho
+  p_insatisfecho <- res$p_insatisfecho
+  p_muy_insatisfecho <- res$p_muy_insatisfecho
 
   # Muestra
   n_muestra <- 16
@@ -1831,12 +1979,9 @@ mostrar_consigna_5 <- function() {
         prob_5d * 100
       ))
       cat(
-        "────────────────────────────────────────────────────────────────────────\n"
-      )
-      cat("-> Gráficos exportados con éxito en la carpeta /output.\n")
-      cat(
         "========================================================================\n\n"
       )
+      cat("-> Gráficos exportados con éxito en la carpeta /output.\n\n")
     },
     echo = FALSE
   )
@@ -1857,7 +2002,6 @@ mostrar_consigna_6 <- function() {
   lambda_30min <- base * 30
 
   x_label_pois <- "Cantidad de Consultas"
-
 
   # ───────────────────────────────────
   # 6a) Por lo menos 6 consultas en 20 minutos: P(X >= 6)
@@ -1962,12 +2106,9 @@ mostrar_consigna_6 <- function() {
         )
       )
       cat(
-        "────────────────────────────────────────────────────────────────────────\n"
-      )
-      cat("-> Gráficos de distribución de eventos guardados en /output.\n")
-      cat(
         "========================================================================\n\n"
       )
+      cat("-> Gráficos de distribución de eventos guardados en /output.\n\n")
     },
     echo = FALSE
   )
@@ -1978,28 +2119,22 @@ mostrar_consigna_6 <- function() {
 # 7) MODELO NORMAL (Consigna 7)
 # ------------------------------------------------------------------------------
 
-mostrar_consigna_7 <- function() {
+mostrar_consigna_7 <- function(res) {
   cat("\014") # Limpiar pantalla
 
-  # Parámetros
-  estat_data <- datos$ESTATURA_CM.
-  estat_media <- mean(estat_data, na.rm = TRUE)
-  estat_desvio <- sd(estat_data, na.rm = TRUE)
-
+  # Parámetro
   x_label_norm <- "Estatura (cm)"
 
   # ───────────────────────────────────
   # 7a) Mayor o igual que 179 cm: P(X >= 179)
   prob_7a <- calculate_normal_probability(
-    mean = estat_media,
-    sd = estat_desvio,
+    res,
     critical_x = 179,
     op = "gte"
   )
 
   g_norm_7a <- render_normal_dist(
-    mean = estat_media,
-    sd = estat_desvio,
+    res,
     critical_x = 179,
     op = "gte",
     var_name = "Estatura mayor o igual a 179 cm",
@@ -2017,15 +2152,13 @@ mostrar_consigna_7 <- function() {
   # ───────────────────────────────────
   # 7b) Comprendida entre 147 y 172 cm: P(147 <= X <= 172)
   prob_7b <- calculate_normal_probability(
-    mean = estat_media,
-    sd = estat_desvio,
+    res,
     critical_x = c(147, 172),
     op = "bet"
   )
 
   g_norm_7b <- render_normal_dist(
-    mean = estat_media,
-    sd = estat_desvio,
+    res,
     critical_x = c(147, 172),
     op = "bet",
     var_name = "Estatura entre 147 y 172 cm",
@@ -2042,11 +2175,10 @@ mostrar_consigna_7 <- function() {
 
   # ───────────────────────────────────
   # 7c) Hallar el valor que excede al 97.5% de la población (Cuantil inverso)
-  valor_7c <- calculate_normal_quantile(mean = estat_media, sd = estat_desvio, prob = 0.975)
+  valor_7c <- calculate_normal_quantile(res, prob = 0.975)
 
   g_norm_7c <- render_normal_dist(
-    mean = estat_media,
-    sd = estat_desvio,
+    res,
     prob = 0.975,
     var_name = "Valor que excede al 97.5% de la población",
     x_label = x_label_norm
@@ -2071,8 +2203,8 @@ mostrar_consigna_7 <- function() {
         "========================================================================\n"
       )
       cat(sprintf(" • Parámetros Empíricos Calculados de la Muestra Actual:\n"))
-      cat(sprintf("     Media Muestral (μ):       %.2f cm\n", estat_media))
-      cat(sprintf("     Desviación Estándar (σ):  %.2f cm\n\n", estat_desvio))
+      cat(sprintf("     Media Muestral (μ):       %.2f cm\n", res$Media))
+      cat(sprintf("     Desviación Estándar (σ):  %.2f cm\n\n", res$Desvio_Estandar))
       cat(" • Análisis Probabilístico Inferencial:\n")
       cat(sprintf(
         "     [a] P(X >= 179 cm)    Estatura Alta        =>  %s (%.2f%%)\n",
@@ -2091,12 +2223,9 @@ mostrar_consigna_7 <- function() {
         valor_7c
       ))
       cat(
-        "────────────────────────────────────────────────────────────────────────\n"
+        "========================================================================\n\n"
       )
-      cat("-> Curva de Gauss y áreas de probabilidad exportadas a /output.\n")
-      cat(
-        "========================================================================\n"
-      )
+      cat("-> Curva de Gauss y áreas de probabilidad exportadas a /output.\n\n")
     },
     echo = FALSE
   )
@@ -2107,75 +2236,64 @@ mostrar_consigna_7 <- function() {
 # 8) INFERENCIA ESTADÍSTICA (Consigna 8)
 # ------------------------------------------------------------------------------
 
-mostrar_consigna_8 <- function() {
+mostrar_consigna_8 <- function(peso) {
   cat("\014") # Limpiar pantalla
-  
-  # 1. Extraer variable continua (Peso) y limpiar posibles NAs
-  peso <- datos$`PESO_KG.`
-  
-  # 2. Configurar la semilla analítica
-  set.seed(415)
-  
-  # 3. Parámetro poblacional real (Universo completo de estudiantes)
-  media_poblacional <- mean(peso, na.rm = T)
-  
-  # 4. Parámetros del diseño muestral (MAS)
-  cantidad_muestras <- 6
-  tamaño_muestras <- 20
-  
-  # Contenedor vectorizado para las medias calculadas
-  medias_muestrales <- numeric(cantidad_muestras)
-  
-  # 5. Iteración automatizada para las 6 extracciones sin reposición
-  for (i in 1:cantidad_muestras) {
-    # Muestreo Aleatorio Simple (replace = FALSE)
-    muestra_i <- sample(peso, tamaño_muestras, replace = F)
-    medias_muestrales[i] <- mean(muestra_i)
-  }
-  
-  # 6. Consolidación de métricas en el Dataframe de Control
-  tabla_resumen <- data.frame(
-    Muestra = paste0("Muestra_", 1:cantidad_muestras),
-    Media_Muestral = round(medias_muestrales, 2)
+
+  # Calculamos la distribución de muestreo de la media
+  params_muestreo <- calculate_sampling_distribution(peso, sample_count = 6, sample_size = 20, seed = 415)
+
+  g_samp_8 <- render_sampling_distribution(params_muestreo, var_name = "Peso de Estudiantes (Kg)", unit = "kg")
+  ggsave(
+    "output/inferencial_limite_central_count6_size20_peso.jpg",
+    g_samp_8,
+    width = 9,
+    height = 5,
+    dpi = 300
   )
-  
-  # Cálculo analítico del error de estimación puntual
-  tabla_resumen$Diferencia_Respecto_Poblacion <- round(tabla_resumen$Media_Muestral - media_poblacional, 2)
-  
-  # 7. IMPRESIÓN DEL INFORME TÉCNICO FORMATEADO EN CONSOLA
-  withAutoprint({
-    message("\n[ANÁLISIS DE DISTRIBUCIONES MUESTRALES Y T.L.C.]")
-    cat("========================================================================\n")
-    cat(" 📊 INFORME TÉCNICO: Simulación de Muestreo Aleatorio Simple (n = 20)   \n")
-    cat("========================================================================\n")
-    cat(sprintf(" • Parámetro Poblacional Real (Universo Completo):\n"))
-    cat(sprintf("   - Media Poblacional Real (μ): %.4f kg\n\n", media_poblacional))
-    cat(" • Resultados de las Medias Muestrales Obtenidas:\n")
-    
-    # Imprime la tabla resumen de forma limpia en el reporte
-    print(tabla_resumen, row.names = FALSE)
-    
-    cat("────────────────────────────────────────────────────────────────────────\n")
-    cat(" 💡 RESPUESTAS EXPLICATIVAS PARA LA CÁTEDRA (ANÁLISIS INFERENCIAL):\n\n")
-    cat(" 1) ¿Coinciden los promedios de las muestras con el parámetro?\n")
-    cat(sprintf("    No, las medias muestrales de forma individual NO coinciden exactamente\n"))
-    cat(sprintf("    con la media poblacional (μ = %.2f kg). Esto se debe a la variabilidad\n", media_poblacional))
-    cat(sprintf("    muestral inherente al azar. Sin embargo, se observa que fluctúan con\n"))
-    cat(sprintf("    proximidad en torno a ella, actuando como estimadores insesgados.\n\n"))
-    
-    cat(" 2) ¿Cómo son los promedios muestrales entre sí?\n")
-    cat("    Los promedios muestrales son diferentes entre sí, mostrando una dispersión\n")
-    cat(sprintf("    que va desde los %.2f kg (Muestra 5) hasta los %.2f kg (Muestra 4).\n", min(tabla_resumen$Media_Muestral), max(tabla_resumen$Media_Muestral)))
-    cat("    Esta variabilidad se conoce estadísticamente como Error Estándar de la Media.\n\n")
-    
-    cat(" 3) CONCLUSIÓN GENERAL EN EL CONTEXTO DEL PROBLEMA:\n")
-    cat(sprintf("    Al promediar las 6 medias obtenidas, el resultado es %.2f kg, valor que\n", mean(medias_muestrales)))
-    cat(sprintf("    se aproxima notablemente a los %.2f kg poblacionales. Esto demuestra de\n", media_poblacional))
-    cat("    manera empírica el Teorema del Límite Central: a pesar de que cada muestra\n")
-    cat("    posee un error individual por el azar, la distribución de las medias tiende\n")
-    cat("    a concentrarse con simetría en torno al parámetro real de la población.\n")
-    cat("========================================================================\n")
-  }, echo = FALSE)
+  print(g_samp_8)
+
+  # Desempaquetamos los objetos calculados por la función matemática
+  df_reporte <- params_muestreo$tabla
+  mu_pob <- params_muestreo$media_poblacional
+  mu_muestras <- params_muestreo$promedio_de_medias
+
+  withAutoprint(
+    {
+      message("\nANÁLISIS DE DISTRIBUCIONES MUESTRALES Y T.L.C.")
+      cat("========================================================================\n")
+      cat(" INFORME TÉCNICO: Simulación de Muestreo Aleatorio Simple para Peso de Estudiantes en kg (n = 20)   \n")
+      cat("========================================================================\n")
+      cat(sprintf(" • Parámetro Poblacional Real (Universo Completo de Alumnos):\n"))
+      cat(sprintf("   - Media Poblacional Real (μ): %.4f kg\n\n", mu_pob))
+      cat(" • Resultados de las Medias Muestrales Obtenidas:\n")
+
+      # Imprime la tabla resumen de forma limpia en el reporte
+      print(df_reporte, row.names = F)
+
+      cat("────────────────────────────────────────────────────────────────────────\n")
+      cat(" RESPUESTAS EXPLICATIVAS PARA LA CÁTEDRA (ANÁLISIS INFERENCIAL):\n\n")
+      cat(" 1) ¿Coinciden los promedios de las muestras con el parámetro?\n")
+      cat(sprintf("    No, las medias muestrales de forma individual NO coinciden exactamente\n"))
+      cat(sprintf("    con la media poblacional (μ = %.2f kg). Esto se debe a la variabilidad\n", mu_pob))
+      cat(sprintf("    muestral inherente al azar. Sin embargo, se observa que fluctúan con\n"))
+      cat(sprintf("    proximidad en torno a ella, actuando como estimadores insesgados.\n\n"))
+
+      cat(" 2) ¿Cómo son los promedios muestrales entre sí?\n")
+      cat("    Los promedios muestrales son diferentes entre sí, mostrando una dispersión\n")
+      cat(sprintf("    que va desde los %.2f kg (Muestra 5) hasta los %.2f kg (Muestra 4).\n", min(df_reporte$Media_Muestral), max(df_reporte$Media_Muestral)))
+      cat("    Esta variabilidad se conoce estadísticamente como Error Estándar de la Media.\n\n")
+
+      cat(" 3) CONCLUSIÓN GENERAL EN EL CONTEXTO DEL PROBLEMA:\n")
+      cat(sprintf("    Al promediar las 6 medias obtenidas, el resultado es %.2f kg, valor que\n", mu_muestras))
+      cat(sprintf("    se aproxima notablemente a los %.2f kg poblacionales. Esto demuestra de\n", mu_pob))
+      cat("    manera empírica el Teorema del Límite Central: a pesar de que cada muestra\n")
+      cat("    posee un error individual por el azar, la distribución de las medias tiende\n")
+      cat("    a concentrarse con simetría en torno al parámetro real de la población.\n")
+      cat("========================================================================\n\n")
+      cat("-> Gráfico exportado con éxito en la carpeta /output.\n\n")
+    },
+    echo = FALSE
+  )
 }
 
 
@@ -2207,27 +2325,27 @@ while (ejecutar_menu) {
   switch(opcion,
     "1" = {
       graphics.off()
-      mostrar_consigna_2a()
+      mostrar_consigna_2a(res_tiempo)
       readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "2" = {
       graphics.off()
-      mostrar_consigna_2b()
+      mostrar_consigna_2b(res_satisfaccion)
       readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "3" = {
       graphics.off()
-      mostrar_consigna_3()
+      mostrar_consigna_3(res_tiempo, res_satisfaccion)
       readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "4" = {
       graphics.off()
-      mostrar_consigna_4()
+      mostrar_consigna_4(tiempo_estudio, res_tiempo, res_satisfaccion)
       readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "5" = {
       graphics.off()
-      mostrar_consigna_5()
+      mostrar_consigna_5(res_satisfaccion)
       readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "6" = {
@@ -2237,12 +2355,12 @@ while (ejecutar_menu) {
     },
     "7" = {
       graphics.off()
-      mostrar_consigna_7()
+      mostrar_consigna_7(res_estatura)
       readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "8" = {
       graphics.off()
-      mostrar_consigna_8()
+      mostrar_consigna_8(peso_kg)
       readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "0" = {
