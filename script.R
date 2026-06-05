@@ -1,6 +1,6 @@
 # ==============================================================================
-# TRABAJO PRÁCTICO INTEGRADOR - CONSIGNAS 1 A 4
-# Estadística Descriptiva
+# TRABAJO PRÁCTICO INTEGRADOR - CONSIGNAS 1 A 8
+# Estadística Descriptiva y Probabilidad
 # Tecnicatura Universitaria en Programación a Distancia
 # ==============================================================================
 
@@ -969,7 +969,7 @@ render_binomial_dist <- function(size,
       size = 2.5,
       fontface = "bold"
     ) +
-    
+
     # Mapeo manual para los TEXTOS (TRUE = Mismo color de barra, FALSE = Gris oscuro legible)
     scale_color_manual(values = c("FALSE" = "gray40", "TRUE" = bar_color)) +
 
@@ -1157,7 +1157,6 @@ render_poisson_dist <- function(lambda,
       size = 2.5,
       fontface = "bold"
     ) +
-    
     scale_color_manual(values = c("FALSE" = "gray40", "TRUE" = bar_color)) +
 
     # Textos e indicadores con el color idéntico a su línea correspondiente
@@ -2104,6 +2103,82 @@ mostrar_consigna_7 <- function() {
 }
 
 
+# ------------------------------------------------------------------------------
+# 8) INFERENCIA ESTADÍSTICA (Consigna 8)
+# ------------------------------------------------------------------------------
+
+mostrar_consigna_8 <- function() {
+  cat("\014") # Limpiar pantalla
+  
+  # 1. Extraer variable continua (Peso) y limpiar posibles NAs
+  peso <- datos$`PESO_KG.`
+  
+  # 2. Configurar la semilla analítica
+  set.seed(415)
+  
+  # 3. Parámetro poblacional real (Universo completo de estudiantes)
+  media_poblacional <- mean(peso, na.rm = T)
+  
+  # 4. Parámetros del diseño muestral (MAS)
+  cantidad_muestras <- 6
+  tamaño_muestras <- 20
+  
+  # Contenedor vectorizado para las medias calculadas
+  medias_muestrales <- numeric(cantidad_muestras)
+  
+  # 5. Iteración automatizada para las 6 extracciones sin reposición
+  for (i in 1:cantidad_muestras) {
+    # Muestreo Aleatorio Simple (replace = FALSE)
+    muestra_i <- sample(peso, tamaño_muestras, replace = F)
+    medias_muestrales[i] <- mean(muestra_i)
+  }
+  
+  # 6. Consolidación de métricas en el Dataframe de Control
+  tabla_resumen <- data.frame(
+    Muestra = paste0("Muestra_", 1:cantidad_muestras),
+    Media_Muestral = round(medias_muestrales, 2)
+  )
+  
+  # Cálculo analítico del error de estimación puntual
+  tabla_resumen$Diferencia_Respecto_Poblacion <- round(tabla_resumen$Media_Muestral - media_poblacional, 2)
+  
+  # 7. IMPRESIÓN DEL INFORME TÉCNICO FORMATEADO EN CONSOLA
+  withAutoprint({
+    message("\n[ANÁLISIS DE DISTRIBUCIONES MUESTRALES Y T.L.C.]")
+    cat("========================================================================\n")
+    cat(" 📊 INFORME TÉCNICO: Simulación de Muestreo Aleatorio Simple (n = 20)   \n")
+    cat("========================================================================\n")
+    cat(sprintf(" • Parámetro Poblacional Real (Universo Completo):\n"))
+    cat(sprintf("   - Media Poblacional Real (μ): %.4f kg\n\n", media_poblacional))
+    cat(" • Resultados de las Medias Muestrales Obtenidas:\n")
+    
+    # Imprime la tabla resumen de forma limpia en el reporte
+    print(tabla_resumen, row.names = FALSE)
+    
+    cat("────────────────────────────────────────────────────────────────────────\n")
+    cat(" 💡 RESPUESTAS EXPLICATIVAS PARA LA CÁTEDRA (ANÁLISIS INFERENCIAL):\n\n")
+    cat(" 1) ¿Coinciden los promedios de las muestras con el parámetro?\n")
+    cat(sprintf("    No, las medias muestrales de forma individual NO coinciden exactamente\n"))
+    cat(sprintf("    con la media poblacional (μ = %.2f kg). Esto se debe a la variabilidad\n", media_poblacional))
+    cat(sprintf("    muestral inherente al azar. Sin embargo, se observa que fluctúan con\n"))
+    cat(sprintf("    proximidad en torno a ella, actuando como estimadores insesgados.\n\n"))
+    
+    cat(" 2) ¿Cómo son los promedios muestrales entre sí?\n")
+    cat("    Los promedios muestrales son diferentes entre sí, mostrando una dispersión\n")
+    cat(sprintf("    que va desde los %.2f kg (Muestra 5) hasta los %.2f kg (Muestra 4).\n", min(tabla_resumen$Media_Muestral), max(tabla_resumen$Media_Muestral)))
+    cat("    Esta variabilidad se conoce estadísticamente como Error Estándar de la Media.\n\n")
+    
+    cat(" 3) CONCLUSIÓN GENERAL EN EL CONTEXTO DEL PROBLEMA:\n")
+    cat(sprintf("    Al promediar las 6 medias obtenidas, el resultado es %.2f kg, valor que\n", mean(medias_muestrales)))
+    cat(sprintf("    se aproxima notablemente a los %.2f kg poblacionales. Esto demuestra de\n", media_poblacional))
+    cat("    manera empírica el Teorema del Límite Central: a pesar de que cada muestra\n")
+    cat("    posee un error individual por el azar, la distribución de las medias tiende\n")
+    cat("    a concentrarse con simetría en torno al parámetro real de la población.\n")
+    cat("========================================================================\n")
+  }, echo = FALSE)
+}
+
+
 # ==============================================================================
 # MENÚ INTERACTIVO
 # ==============================================================================
@@ -2112,7 +2187,7 @@ ejecutar_menu <- TRUE
 while (ejecutar_menu) {
   cat("\014") # Limpiar consola al regresar al menú principal
   cat("========================================================================\n")
-  cat("  UTN - TPI PROBABILIDAD Y ESTADÍSTICA - Panel de Control\n")
+  cat("  UTN - TPI PROBABILIDAD Y ESTADÍSTICA - Panel de Control Interactivo\n")
   cat("========================================================================\n")
   cat("  [1] Mostrar Consigna 2a: Análisis de Variable Continua (Tiempo de Estudio)\n")
   cat("  [2] Mostrar Consigna 2b: Análisis de Variable Ordinal (Satisfacción con la Carrera)\n")
@@ -2121,6 +2196,7 @@ while (ejecutar_menu) {
   cat("  [5] Mostrar Consigna 5:  Distribución Binomial (Satisfacción con la Carrera)\n")
   cat("  [6] Mostrar Consigna 6:  Distribución de Poisson (Consultas Recibidas)\n")
   cat("  [7] Mostrar Consigna 7:  Distribución Normal (Estaturas de Estudiantes)\n")
+  cat("  [8] Mostrar Consigna 8:  Inferencia Estadística (Peso de Estudiantes)\n")
   cat("  [0] Salir del Programa\n")
   cat("========================================================================\n")
 
@@ -2132,37 +2208,42 @@ while (ejecutar_menu) {
     "1" = {
       graphics.off()
       mostrar_consigna_2a()
-      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+      readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "2" = {
       graphics.off()
       mostrar_consigna_2b()
-      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+      readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "3" = {
       graphics.off()
       mostrar_consigna_3()
-      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+      readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "4" = {
       graphics.off()
       mostrar_consigna_4()
-      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+      readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "5" = {
       graphics.off()
       mostrar_consigna_5()
-      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+      readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "6" = {
       graphics.off()
       mostrar_consigna_6()
-      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+      readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "7" = {
       graphics.off()
       mostrar_consigna_7()
-      readline(prompt = "\n Presione [ENTER] para regresar al menú principal...")
+      readline(prompt = "Presione [ENTER] para regresar al menú principal...")
+    },
+    "8" = {
+      graphics.off()
+      mostrar_consigna_8()
+      readline(prompt = "Presione [ENTER] para regresar al menú principal...")
     },
     "0" = {
       ejecutar_menu <- FALSE
