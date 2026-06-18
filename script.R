@@ -687,13 +687,16 @@ calculate_normal_quantile <- function(res,
 # ──────────────────────────────────────────────────────────────────────────────
 # Simulación de Muestreo Aleatorio Simple (MAS)
 # ──────────────────────────────────────────────────────────────────────────────
-calculate_sampling_distribution <- function(population_vector, sample_count, sample_size, seed, rnd = 4) {
+calculate_sampling_distribution <- function(population_vector, sample_count, sample_size, seed, Z = 1.96, rnd = 4) {
   # Asegurar la repetibilidad del experimento aleatorio
   set.seed(seed)
 
   # Limpiar el vector de la población de valores nulos para evitar errores finitos
   poblacion_limpia <- na.omit(population_vector)
   media_pob <- mean(poblacion_limpia)
+
+  # Parámetro de variabilidad poblacional (σ)
+  sigma_pob <- sd(poblacion_limpia)
 
   # Contenedor vectorizado para almacenar las medias aritméticas
   medias <- numeric(sample_count)
@@ -703,6 +706,12 @@ calculate_sampling_distribution <- function(population_vector, sample_count, sam
     muestra_i <- sample(poblacion_limpia, size = sample_size, replace = F)
     medias[i] <- mean(muestra_i)
   }
+
+  # Error estándar de la media: sigma / raiz(n)
+  error_estandar <- sigma_pob / sqrt(sample_size)
+
+  # Margen de error máximo (E)
+  margen_error <- Z * error_estandar
 
   # Consolidar el DataFrame de control analítico
   df_resumen <- data.frame(
@@ -715,7 +724,11 @@ calculate_sampling_distribution <- function(population_vector, sample_count, sam
   return(list(
     tabla = df_resumen,
     media_poblacional = media_pob,
-    promedio_de_medias = mean(medias)
+    promedio_de_medias = mean(medias),
+    n = sample_size,
+    E = margen_error,
+    Z = Z,
+    confianza = round((1 - (1 - pnorm(Z)) * 2), rnd) * 100
   ))
 }
 
@@ -1548,11 +1561,19 @@ render_sampling_distribution <- function(res, var_name = "Variable Continua", un
   df_plot <- res$tabla
   mu_pob <- res$media_poblacional
   mu_muestras <- res$promedio_de_medias
+  n <- res$n
+  E <- res$E
+  Z <- res$Z
+  confianza <- res$confianza
+
+  # Determinamos coordenadas dinámicas para la anotación superior derecha
+  x_max_idx <- nrow(df_plot)
+  y_max_val <- max(df_plot$Media_Muestral + E) * 1.01
 
   # Creamos el gráfico con ggplot2
   p <- ggplot(df_plot, aes(x = Muestra, y = Media_Muestral)) +
 
-    # 1. Línea de referencia horizontal: El Parámetro Real Poblacional (μ)
+    # Línea de referencia horizontal: El Parámetro Real Poblacional (μ)
     geom_hline(
       aes(yintercept = mu_pob),
       color = "red",
@@ -1572,7 +1593,7 @@ render_sampling_distribution <- function(res, var_name = "Variable Continua", un
       hjust = -0.1
     ) +
 
-    # 2. Línea de referencia horizontal: El Promedio de las medias (T.L.C.)
+    # Línea de referencia horizontal: El Promedio de las medias (T.L.C.)
     geom_hline(
       aes(yintercept = mu_muestras),
       color = "blue",
@@ -1592,14 +1613,36 @@ render_sampling_distribution <- function(res, var_name = "Variable Continua", un
       hjust = -0.1
     ) +
 
-    # 3. Líneas verticales que muestran el error de cada muestra
+    # Leyenda ubicada arriba a la derecha
+    annotate("label",
+             x = x_max_idx,
+             y = y_max_val,
+             label = paste0("I.C. del ", confianza, "% (E = ", round(Z, rnd), " × ", round(E/Z, rnd), ")"),
+             color = "purple",
+             fontface = "italic",
+             fill = "white",
+             size = 3.2,
+             hjust = 1.05,
+             vjust = 1
+    ) +
+
+    # Barras de error que representan el error estándar de cada media muestral (E = σ/√n)
+    geom_errorbar(
+      aes(ymin = Media_Muestral - E, ymax = Media_Muestral + E),
+      width = 0.2,
+      color = "purple",
+      linewidth = 0.7,
+      alpha = 0.5
+    ) +
+
+    # Líneas verticales que muestran el error de cada muestra
     geom_linerange(
       aes(ymin = mu_pob, ymax = Media_Muestral, color = Diferencia_Respecto_Poblacion > 0),
-      linewidth = 1,
+      linewidth = 1.5,
       alpha = 0.7
     ) +
 
-    # 4. Los puntos que representan la media de cada muestra
+    # Los puntos que representan la media de cada muestra
     geom_point(
       aes(color = Diferencia_Respecto_Poblacion > 0),
       size = 4
@@ -1611,7 +1654,8 @@ render_sampling_distribution <- function(res, var_name = "Variable Continua", un
     # Etiqueta con el valor numérico exacto arriba de cada punto
     geom_text(
       aes(label = paste0(Media_Muestral, " ", unit)),
-      vjust = -0.7,
+      vjust = 0.5,
+      hjust = -0.2,
       fontface = "bold",
       size = 3
     ) +
@@ -1619,7 +1663,10 @@ render_sampling_distribution <- function(res, var_name = "Variable Continua", un
     # Estética y títulos dinámicos
     labs(
       title = paste("Teorema del Límite Central:", var_name),
-      subtitle = paste0("Simulación de ", nrow(df_plot), " muestras aleatorias independientes (n = 20)"),
+      subtitle = paste0(
+        "Simulación de ", nrow(df_plot),
+        " muestras aleatorias independientes    (n = ", n,
+        " | confianza = ", confianza, "% | E = ±", round(E, rnd), ")"),
       x = "Muestras Extraídas (Sin Reposición)",
       y = paste0("Media Muestral (", unit, ")")
     ) +
@@ -2316,7 +2363,7 @@ mostrar_consigna_8 <- function(peso) {
       cat("========================================================================\n")
       cat(" INFORME TÉCNICO: Simulación de Muestreo Aleatorio Simple para Peso de Estudiantes en kg (n = 20)   \n")
       cat("========================================================================\n")
-      cat(sprintf(" • Parámetro Poblacional Real (Universo Completo de Alumnos):\n"))
+      cat(" • Parámetro Poblacional Real (Universo Completo de Alumnos):\n")
       cat(sprintf("   - Media Poblacional Real (μ): %.4f kg\n\n", mu_pob))
       cat(" • Resultados de las Medias Muestrales Obtenidas:\n\n")
 
@@ -2326,16 +2373,18 @@ mostrar_consigna_8 <- function(peso) {
       cat("\n────────────────────────────────────────────────────────────────────────\n")
       cat(" RESPUESTAS EXPLICATIVAS PARA LA CÁTEDRA (ANÁLISIS INFERENCIAL):\n\n")
       cat(" 1) ¿Coinciden los promedios de las muestras con el parámetro?\n")
-      cat(sprintf("    No, las estimaciones puntuales de forma individual NO coinciden exactamente\n"))
-      cat(sprintf("    con el parámetro poblacional (μ = %.2f kg). Esto se debe al error de muestreo\n", mu_pob))
-      cat(sprintf("    inherente al azar. Sin embargo, actúan como estimadores insesgados que\n"))
-      cat(sprintf("    fluctúan en un entorno de alta proximidad en torno a él.\n\n"))
-      
+      cat("    No. Las estimaciones puntuales obtenidas de forma individual por\n")
+      cat("    cada muestra no coinciden de manera exacta con el parámetro\n")
+      cat(sprintf("    poblacional real (μ = %.2f kg). Esto se debe al error de muestreo\n", mu_pob))
+      cat("    inherente al azar. Sin embargo, actúan como estimadores insesgados que\n")
+      cat("    fluctúan en un entorno de alta proximidad en torno a él.\n\n")
+
       cat(" 2) ¿Cómo son los promedios muestrales entre sí?\n")
-      cat("    Los promedios muestrales son heterogéneos entre sí, registrando una dispersión\n")
-      cat(sprintf("    que va desde los %.2f kg hasta los %.2f kg. Esta variabilidad entre muestras\n", min(df_reporte$Media_Muestral), max(df_reporte$Media_Muestral)))
-      cat("    se encuentra regulada teóricamente por el Error Estándar de la Distribución Muestral.\n\n")
-      
+      cat("    Los promedios muestrales son heterogéneos entre sí, registrando una fluctuación\n")
+      cat(sprintf("    u oscilación que va desde un límite mínimo de %.2f kg hasta un máximo de %.2f kg.\n", min(df_reporte$Media_Muestral), max(df_reporte$Media_Muestral)))
+      cat("    Esta variabilidad entre muestras se encuentra regulada teóricamente por el Error\n")
+      cat("    Estándar de la Distribución Muestral.\n\n")
+
       cat(" 3) CONCLUSIÓN GENERAL EN EL CONTEXTO DEL PROBLEMA:\n")
       cat(sprintf("    Al promediar las 6 medias obtenidas, el resultado conjunto es %.2f kg, valor que\n", mu_muestras))
       cat(sprintf("    converge con notable precisión frente al parámetro real (μ = %.2f kg). Esto demuestra\n", mu_pob))
